@@ -3407,7 +3407,7 @@ learning_log.md (3,396 lines, 220 "###" headings, no duplicates) ends with the s
   .ld 83f60f7f… (= session 21). Bench Map read in full (footer v153 = prompt) → v154; 3.5 bld 8/14,
   3.5 11.5/15, 3.5a 4/4 rows added to the score table (missing). Asked: Breakpoints view EMPTY?
   Next: Phase 3 self-test (paper) → GDB check (pc 0x226, x/3i 0x2F0) → Field Guide Phase 3 → 4.0.
- ### Phase 3 self-test (paper) — session 22, 2026-11-10 19:16 (graded 2.55/5)
+### Phase 3 self-test (paper) — session 22, 2026-11-10 19:16 (graded 2.55/5)
 Q1 0.6: 5 CFSR decodes right (no D1.2.11 p.1477); BFSR byte 0x82 right, reason "lower byte of
   0x8200" wrong (BFSR = byte 1, 0xE000ED29; MMFSR/BFSR share layout: bit 7 xFARVALID, bit 1 precise
   data error). Q2 0.4: IPSR/HFSR/USGFAULTENA right; SHCSR lost the active bits (3.1b 0x4, 3.1c
@@ -3451,3 +3451,236 @@ Field Guide (doc 8724fa96, rev 31) extended: 7 sections after the CMSIS section 
 Phase 3 DONE on the Bench Map (chip "done · self-test 2.55/5", test row added). Bench Map v158.
 Next: 4.0 read-only audit (CONTROL, IPSR, MSP/PSP banking, MSPLIM/PSPLIM, SHPR2 — citations opened
   first).  
+
+### 4.0 issued — session 22, 2026-11-10 22:14
+learning_log.md re-checked (3,453 lines): old log = exact prefix; 4 session-22 blocks present once;
+  line 3410 " ### Phase 3 self-test …" has a leading space → not a heading (fix). Field Guide renamed
+  "M33 Field Guide: Phases 0–3 in Plain Words" (doc name + H1, rev 32).
+4.0 = read-only audit at stop-at-main, image 3.5, no code change. Reads: control_s, control_ns, msp_s,
+  psp_s, msp_ns, psp_ns, msplim_s, psplim_s, msplim_ns, psplim_ns, $sp, $xpsr (IPSR), SHPR2
+  0xE000ED1C, SHPR2_NS 0xE002ED1C.
+Sources opened (pdftotext): RCNMS/RRPKP/RCMQP p.69; RWVRK/IWCFH p.70; RGKVQ/RHVGB/INMBL p.73; RDTBJ
+  p.75; RBHDK p.77; RRDLR/RTXRW/IDMLS/RMDXK/ILVWN p.78; CONTROL D1.2.13 p.1480–1482 (UPAC_EN 7,
+  PAC_EN 6, UBTI_EN 5, BTI_EN 4 banked, RES0 without PACBTI; SFPA 3 not banked, RAZ/WI from NS; FPCA 2
+  not banked; SPSEL 1 banked; nPRIV 0 banked; all Warm reset 0); IPSR D1.2.142 p.1707 (8:0, not
+  banked); MSPLIM D1.2.177 p.1757 / PSPLIM D1.2.218 p.1814 (LIMIT 31:3, banked, Warm reset 0); SHPR2
+  D1.2.235 p.1846 (0xE000ED1C; PRI_11 SVCall 31:24 banked, reset 0; 23:0 RES0; SHPR2_NS 0xE002ED1C
+  RES0 to NS software and the debugger). GDB names known from the log: control_s/control_ns (1b.4b),
+  msp_s/msp_ns (1a.5a), msplim_s/psplim_s (3.0). Predictions G1–G14 asked. Bench Map v159.
+  
+### 4.0 predictions — session 22, 2026-11-11 09:04 (lock check)
+G1 control_s 0; G2 control_ns 0; G3 msp_s 0x2000_FFF0; G4 psp_s 0; G5 msp_ns 0; G6 psp_ns 0; G7
+  msplim_s 0; G8 psplim_s 0; G9 msplim_ns 0; G10 psplim_ns 0; G11 $sp 0x2000_FFF0 = msp_s; G12 IPSR 0,
+  Thread; G13 SHPR2 0; G14 SHPR2_NS 0.
+Lock flags: G3 reason vs own files (Reset_Handler push, "sub sp,#16 (or similar)", 0x2001_0000 − 8 −
+  16 ≠ 0x2000_FFF0, log entry/halt unnamed); G7 "3.3 MSPLIM code runs after stop-at-main" vs .c 3.5;
+  G1/G2 independent 0s vs D1.2.13 banking (FPCA/SFPA not banked; SFPA RAZ/WI from NS), reset value
+  alone; G5/G6 "uninitialized (0)"; G4/G9/G10/G11 no source or log entry; G12 unsourced clause.
+Addendum allowed before the run. Bench Map v160.
+
+### 4.0 predictions LOCKED — session 22, 2026-11-11 09:22 (addendum accepted)
+G1 control_s 0x0000_000C; G2 control_ns 0x0000_0008; G3 msp_s 0x2000_FFE8; G4 psp_s 0; G5 msp_ns 0;
+  G6 psp_ns 0; G7 msplim_s 0; G8 psplim_s 0; G9 msplim_ns 0; G10 psplim_ns 0; G11 $sp 0x2000_FFE8 =
+  msp_s; G12 IPSR 0, Thread; G13 SHPR2 0; G14 SHPR2_NS 0.
+Lock flags (recorded, grades stand): G1 float lines 175–176 vs stop line 174 (1b.4b read at
+  for(;;)); G3 "sub sp,#16" not from the 3.5 objdump, "log 3.1a/3.5" unnamed; G4–G6 RRDLR p.78 states
+  no reset value; G11 RGKVQ/RHVGB not about stack selection (IDMLS p.78). Run issued. Bench Map v161.
+  
+### 4.0 read-only audit — session 22, 2026-11-11 09:29 (graded)
+Same image 3.5, no rebuild. "Temporary breakpoint 1, main () at …:174"; info breakpoints none; $2 =
+  0x226; x/3i 0x2F0 = ldr r3 (0x3B0) / ldr r2 (0x3B4) / str r2,[r3,#0].
+info registers: control_s 0, control_ns 0, msp_s 0x2000_FFF0, psp_s 0, msp_ns 0, psp_ns 0xFFFF_FFFC,
+  msplim_s 0, psplim_s 0, msplim_ns 0, psplim_ns 0 (all names accepted). $sp 0x2000_FFF0 (= msp_s);
+  $xpsr 0x6900_0000 (IPSR 0 → Thread; Z C Q T). SHPR2 0xE000ED1C 0 (SVCall level 0); SHPR2_NS
+  0xE002ED1C 0 (RES0 to debugger, D1.2.235 p.1846).
+Learned: FPCA 0 at main — first FP instruction is line 175, after the halt; CPACR enable doesn't set
+  FPCA (D1.2.13 p.1482); 1a.5a control_s 0 at main, 1b.4b 0xC at for(;;). sp = 0x2001_0000 − 8 (push
+  {r7,lr}) − 8 (sub sp,#8); bl main pushes nothing. SFPA RAZ/WI from NS (p.1481). PSP_NS 0xFFFF_FFFC
+  with no writer in our image; bits 1:0 = 0 (RXPWM p.79); reset value not in opened docs → open
+  (test: read at Reset_Handler after Restart). Unbanked FPCA in the NS view untested (FPCA 0 here).
+Grades: G1 ❌ G2 ❌ G3 ❌ G4 ✅ G5 ✅ G6 ❌ G7 ✅ G8 ½ G9 ½ G10 ½ G11 ❌ G12 ✅ G13 ✅ G14 ✅ → 8.5/14.
+Weak point: addendum moved G1/G2/G3 from right values to wrong ones (flags asked for reasons, not
+  values). Asked: Terminate at main + unplug? Next (proposed): 4.1 Thread on PSP_S. Bench Map v162.
+  
+### 4.1 issued — session 22, 2026-11-11 09:33
+Terminate at main after 4.0 + board unplugged: CONFIRMED (user).
+4.1 = Thread mode on PSP_S, observed through the existing 3.5 MemManage (store at the trigger;
+  handler unchanged). Composition C1–C9 asked: C1 PSP area (not .bss ≤0x2000_8020, not MPU region
+  0x8040–805F, not MSP min 0x2000_FF84; alignment + rule); C2 placement vs float lines 175–176 and
+  trigger; C3 msr psp inline asm (::: style), RBRLT p.116; C4 CONTROL RMW (MRS/OR/MSR), before/after
+  values, why not a constant (MSR CONTROL writes nPRIV/SPSEL/FPCA/SFPA, C2.4.126 p.763 lines 108–117);
+  C5 ISB (RSNGJ p.73) + DSB question; C6 -O0 r7 frame pointer vs new SP; C7 handler stack (RTXRW
+  p.78), no handler/.S change; C8 GDB halts + read lists (addresses after objdump); C9 header after
+  line 21 + edit positions.
+Sources opened (pdftotext): RSNGJ/RHVGB/INMBL p.73; RTXRW/IDMLS p.78; RXPWM/RJXJM p.79; RPBVF p.109;
+  RBRLT p.116; MSR C2.4.126 p.760–763; MRS C2.4.125 p.755 (located); EXC_RETURN D1.2.96 p.1628–1629.
+  Bench Map v163.
+  
+### 4.1 composition round 1 — session 22, 2026-11-11 10:13
+Accepted: C1 PSP_S top 0x2000_B000 (8-aligned; RXPWM/RJXJM p.79, RPBVF p.109 to cite); C4 RMW
+  mrs → |= (1u<<1) → msr, CONTROL_S 0xC → 0xE (p.763 lines 108–117 to cite); C7 handler on MSP, no
+  handler/.S change (RTXRW p.78 to cite); C9 header "4.1: Thread mode on the process stack (PSP_S)"
+  after line 21.
+Fix in round 2: C2 no line number; reason (prologue/f corruption) contradicts own C6 (locals via r7);
+  C9 "after line 184" = between LED comment 184 and PDDR 185; C3 ": )" and C4 no clobber → ":::"
+  style + "memory"; RBRLT p.116 uncited; C5 DSB not answered from the Phase 2 barrier rule
+  (memory-mapped store vs special-register write); C6 MSP_S after switch + handler push vs main's r7
+  frame; C8 stop-at-main "*0x186" (temp bp #1; not from any image), SIGSTOP "*0x1D0" as a bp
+  (vector catch), GDB names exc_return/ipsr/cfsr/mmfar → $lr/$xpsr/x/1wx; missing msp_s, psp_s,
+  control_s, frame x/8xw at entry; 0x2000B000u literal → own macro PSP_S_TOP with line + comment.
+Bench Map v164.
+
+### 4.1 composition round 2 — session 22, 2026-11-11 10:21
+Accepted: C1 0x2000_B000 (RXPWM/RJXJM p.79, RPBVF p.109); C3 msr psp "r"(PSP_S_TOP) + "memory",
+  RBRLT p.116; C4 RMW mrs/|=(1u<<1)/msr + "memory", CONTROL_S 0xC → 0xE, p.763 lines 108–117; C5 ISB
+  only, no DSB (special-register write, not memory-mapped; RSNGJ p.73); C7 RTXRW/IDMLS p.78; macro
+  PSP_S_TOP after line 84.
+Fix in round 3: C2/C9 "before line 215 (REG32(MPU_TARGET_ADDR) = 0xDEADBEEFu)" — line 215 = MPU_RNR,
+  trigger = 224; floats "170–171" → 175–176; C6 MSP_S 0x2000_FFE8 vs 4.0 measured 0x2000_FFF0
+  (ctrl_val effect via objdump), "main's frame on PSP_S" (r7 frame on MSP); C8 SIGSTOP "sp = psp_s"
+  and frame "at msp_s" contradict the design, SPSEL claim = prediction; trigger reads msp_s/psp_s;
+  macro comment without source. Bench Map v165.
+  
+### 4.1 composition accepted — session 22, 2026-11-11 10:27 (rounds 1–3)
+C1 PSP_S_TOP 0x2000_B000 (8-aligned; RXPWM/RJXJM p.79, RPBVF p.109; clear of .bss ≤0x2000_8020, MPU
+  0x8040–805F, MSP min 0x2000_FF84). C2/C9 after line 222 (isb), before 224 (trigger). C3 msr psp
+  "r"(PSP_S_TOP) "memory", not limit-checked (RBRLT p.116). C4 mrs → ctrl_val |= (1u<<1) → msr
+  control, "memory"; CONTROL_S 0xC → 0xE; constant would clear FPCA/SFPA (C2.4.126 p.763 lines
+  108–117). C5 ISB only (RSNGJ p.73; special-register write, no DSB). C6 MSP_S after switch from
+  objdump. C7 handler on MSP (RTXRW/IDMLS p.78), no handler/.S change. C8 temp bp #1 → bp after isb →
+  bp trigger str → SIGSTOP (vector catch) → bp park; read lists incl. msp_s/psp_s/control_s/$lr/
+  CFSR/MMFAR/frame. Macro after line 84 with source comment; header after line 21.
+Corrections carried (recorded): C6 "hardware stacking on MSP_S" → frame on the preempted context's
+  stack = PSP_S (RWYWW p.104, RPBVF p.109), only the handler push on MSP; C8 frame at psp_s read at the
+  SIGSTOP, not the pre-entry value.
+Errors fixed across rounds: line 184 (LED block); line 215 mislabelled as the trigger; floats
+  "170–171"; ": )" clobber; stop-at-main "*0x186"; SIGSTOP as a bp; exc_return/ipsr/cfsr/mmfar GDB
+  names; MSP_S 0x2000_FFE8 from old G3; main's frame "on PSP_S"; frame "at msp_s".
+File edit issued; expected header 22 / */ 23, macro 86, block 225–231, trigger 233, 261 lines.
+  Bench Map v166.
+  
+### 4.1 saved-file check round 1 — session 22, 2026-11-11 11:23
+User Select-String (from source\): 3.5 header 21, 4.1 header 22, */ 23; MPU_TARGET_ADDR 85; PSP_S_TOP
+  87 (no comment — agreed comment missing); main 175; isb 216 (SHCSR pair) / 225 (MPU pair); block
+  msr psp 228, ctrl_val 229, mrs 230, |= 231, msr control 232, isb 233 (RSNGJ); trigger 235; isb 253
+  (ISPR pair); Count 263 (expected 261 → lines 86, 226–227, 234 unseen; likely blanks + block
+  comment). .c not attached.
+Asked: add the macro comment on line 87; show lines 84–88 and 224–236 with numbers + Count; attach .c.
+  Bench Map v167.
+  
+### 4.1 saved-file check round 2 — sources frozen — session 22, 2026-11-11 11:29
+File attached; diff vs 3.5 (.c 252) = agreed edits only: header 22 "4.1: Thread mode on the process
+  stack (PSP_S)" (*/ 23); PSP_S_TOP 87 with source comment (RAMB .ld line 10, RJXJM p.79) + blank
+  88; blank 226 + block 227–233 (comment, msr psp "r"(PSP_S_TOP) "memory", uint32_t ctrl_val, mrs
+  control, |= (1u<<1), msr control, isb RSNGJ p.73); trigger 235. .c 263 lines, md5 97e4a1b1…, CRLF;
+  .S 142 / .ld 45 unchanged. Sources frozen for 4.1.
+Build predictions P1–P12 asked (warnings; text/data/bss; main + stop pc; block start; PSP_S_TOP load;
+  block size; ctrl_val location; bp after isb; trigger str; MemManage + park; Reset/Default; slot 4).
+  Bench Map v168.
+  
+### 4.1 build predictions — session 22, 2026-11-11 12:10 (lock check)
+P1 0/0; P2 1195 / 4 / 28; P3 main 0x168, stop 0x16E; P4 0x220; P5 ldr literal "4 B"; P6 24 B; P7 r3;
+  P8 0x238; P9 0x2FA; P10 0x1D0 / 0x206; P11 Reset 0x3E0, Default 0x434; P12 0x1D1.
+Lock flags: P3 = image 2.5d values (3.5 build main 0x220; 4.0 pc 0x226); P4 = 3.5 main start (block
+  after line 225 isb); P8 vs P9 (trigger = ldr, ldr, str); P11 unchanged vs P2/P6 main growth (Reset
+  follows main); P5 mixed sizes; P6 not itemised, "orr/mov"; P7 hedge + reason vs -O0 named locals
+  (f in 3.5 objdump); P1 reason not evidence. Addendum allowed. Bench Map v169.
+  
+### 4.1 build predictions LOCKED — session 22, 2026-11-11 12:12 (addendum accepted)
+P1 0/0; P2 text 1219 / data 4 / bss 28; P3 main 0x220, stop 0x226; P4 symbolic (ungraded); P5 ldr
+  literal 2 B + 4 B word; P6 24 B (ldr 2 + lit 4 + msr psp 4 + mrs 4 + orr 4 + msr control 4 + isb
+  2); P7 [r7, #n] (n not given); P8 / P9 symbolic (ungraded); P10 MemManage 0x1D0, park 0x206; P11
+  Reset 0x3F8 (Default not given); P12 0x1D1.
+Lock flags (recorded, grades stand): P2 base 1195 = own earlier prediction (3.5 text 1171); P6 isb 2 B
+  vs size rule 4 B; P6 no ctrl_val str/ldr vs own P7; P4/P8/P9 no value. Build commands issued
+  ($tb/$od/$nm/$sz from Debug\). Bench Map v170.
+  
+### 4.1 build — session 22, 2026-11-11 12:23 (graded 12:24)
+Result: 0/0; FLASH 1208 B, RAMB 32 B; text 1203 data 4 bss 28. .text 0x3D3 @0xE0; .data LMA 0x4B4;
+  .bss 0x1C @0x2000_8004 (globals = 3.5). Symbols: uart4_putc 0xE0, SysTick 0x114, LP_FLEXCOMM4 0x14C,
+  UsageFault 0x168, BusFault 0x180, MemManage_Handler 0x1D0 (0x50, park nop 0x206), main 0x220
+  (0x1E0), Reset 0x400, Default 0x454, uart4_puts 0x458. .isr_vector slot 4 0x1D1, 5 0x181, 6 0x169,
+  Default 0x455. main: prologue push {r7,lr} / sub sp,#8 / add r7,sp,#0 (stop pc 0x226); f at
+  [r7,#0]; MPU dsb 0x2E8 isb 0x2EC; 4.1 block 0x2F0 ldr r3 ← 0x2000_B000 (lit 0x3CC), 0x2F2 msr PSP,r3
+  (f383 8809), 0x2F6 mrs r3,CONTROL (f3ef 8314), 0x2FA str [r7,#4], 0x2FC ldr, 0x2FE orr.w #2, 0x302
+  str, 0x304 ldr, 0x306 msr CONTROL,r3 (f383 8814), 0x30A isb; trigger ldr 0x30E (← 0x2000_8040),
+  ldr 0x310 (← 0xDEADBEEF), str 0x312.
+Learned: -O0 named local stored/reloaded around each statement (+4 × 2 B); isb = 4 B; ctrl_val at
+  [r7,#4] → frame stays 8 B → MSP_S at main 0x2000_FFF0; SYSm in encodings = C2.4.126 table (PSP 0x09,
+  CONTROL 0x14); main +0x20 = 30 code + 4 literal − 2 pad.
+Grades: P1 ✅ P2 ❌ P3 ✅ P4 – P5 ✅ P6 ❌ P7 ½ P8 – P9 – P10 ✅ P11 ❌ P12 ✅ → 5.5/12 (P4/P8/P9
+  ungraded). Board: bp #2 0x30E, bp #3 0x312, SIGSTOP 0x1D0, bp #4 0x206. Board predictions B1–B15
+  asked. Bench Map v171.
+  
+### 4.1 board predictions — session 22, 2026-11-11 13:02 (lock check)
+B1 0xE; B2 0x2000_FFE8; B3 0x2000_FFE8; B4 0x2000_B000; B5 0x2000_B000; B6 0x1D0; B7 0x2000_FFE8; B8
+  0x2000_FFE8; B9 0x2000_B000; B10 0xFFFF_FFE9; B11 0xC; B12 0x0900_0034; B13 {0x498, 0x2000_8020,
+  0xDEADBEEF, 0x2000_8040, 0x4, 0x41B, 0x31E, 0x2910_0004}; B14a 0x82; B14b 0x2000_8040; B15
+  0x2000_FFE8.
+Lock flags: FFE8 vs 4.1 build (frame 8 B) + 4.0 msp_s at main; B2 value MSP vs own reason (Thread on
+  PSP); B9 "retains" vs own B13 (frame on PSP; RJXJM p.79 / RPBVF p.109), read address = stack top;
+  B10 hex vs own SPSEL = 1 decode, "FType 0/1"; B11 vs Field Guide entry rule (FPCA/SFPA); B12 IPSR
+  0x34 vs own "4" (2nd session, 3.5 B7); B13 LR/RA/R0 = 3.5 values vs 4.1 build (Reset 0x400, str
+  0x312, __data_load__ 0x4B4), RETPSR IPSR = interrupted mode; B15 "remains" vs push {r7} at 0x1D0;
+  B14a name, B5 label. Addendum allowed. Bench Map v172.
+
+### 4.1 board predictions LOCKED — session 22, 2026-11-11 13:16 (addendum accepted)
+B1 0xE; B2 0x2000_B000; B3 0x2000_FFF0; B4 0x2000_B000; B5 0x2000_B000; B6 0x1D0; B7 0x2000_FFF0;
+  B8 0x2000_FFF0; B9 0x2000_AFA8; B10 0xFFFF_FFE9; B11 0xC; B12 0x0100_0004; B13 {0x4B8, 0x2000_8020,
+  0xDEADBEEF, 0x2000_8040, 0x4, 0x43B, 0x322, 0x2910_0000}; B14a 0x82; B14b 0x2000_8040; B15
+  0x2000_FFEC.
+Lock flags (recorded, grades stand): B9 arithmetic (0x2000_B000 − 0x68); B10 hex vs own bit list;
+  B11 reason self-contradictory; B12 "Q/APSR flags" vs hex; B13 RA 0x322 vs own B5 / build str 0x312,
+  "__bss_end__ shifted" vs build. Run issued: temp bp #1 (:177, pc 0x226), bp #2 0x30E, bp #3 0x312,
+  SIGSTOP, bp #4 0x206; Terminate at bp #4. Bench Map v173.
+
+### 4.1 board run — session 22, 2026-11-11 13:30 (graded)
+Launch "Temporary breakpoint 1, main () at …:177", pc 0x226; x/3i 0x30E = ldr r3 (0x3D0) / ldr r2
+  (0x3D4) / str r2,[r3,#0] → image 4.1. bp #2 0x30E (235), bp #3 0x312 (235), bp #4 0x206 (171).
+At "Breakpoint 2, main () at …:235" (pc 0x30E): control_s 0xE, msp_s 0x2000_FFF0, psp_s 0x2000_B000,
+  $sp 0x2000_B000. At "Breakpoint 3, 0x00000312": $sp 0x2000_B000.
+At "Program received signal SIGSTOP, Stopped (signal). MemManage_Handler () at …:159": pc 0x1D0, $sp
+  0x2000_FFF0 = msp_s, psp_s 0x2000_AF98, control_s 0, $lr 0xFFFF_FFED, $xpsr 0x2900_0004; x/8xw
+  0x2000_AF98: 0x4B8, 0x2000_8020, 0xDEADBEEF, 0x2000_8040, 0x4, 0x43B, 0x312, 0x2910_0000; CFSR
+  0x82, MMFAR 0x2000_8040.
+At "Breakpoint 4, 0x00000206 in MemManage_Handler () at …:171": $sp 0x2000_FFEC.
+Learned: CONTROL RMW + ISB → Thread on PSP_S (RSNGJ p.73); MSP_S untouched (0x2000_FFF0). Exception
+  from Thread/PSP stacks on PSP (RWYWW p.104, RPBVF p.109): 26 words (FPCA 1), 0x2000_B000 − 0x68 =
+  0x2000_AF98, no pad (RETPSR bit 9 0). EXC_RETURN 0xFFFF_FFED (S1 DCRS1 FType0 Mode1 SPSEL1 ES1,
+  D1.2.96). Handler on MSP (RTXRW p.78), push {r7} → 0x2000_FFEC; CONTROL_S 0 in handler (SPSEL by
+  RHVGB p.73; FPCA/SFPA cleared on entry). R0 = __data_load__ end 0x4B8, R1 = __bss_end__ (3rd
+  sample, inference); LR 0x43B = Reset bl-main return (0x400 + 0x3A + 1); RA 0x312 = the str
+  (precise). Live xPSR no SFPA, RETPSR bit 20 set (as 3.4/3.5).
+Grades: B1–B8 ✅ B9 ❌ B10 ❌ B11 ❌ B12 ❌ B13 ½ B14a ✅ B14b ✅ B15 ✅ → 11.5/16.
+Weak points: right reason, wrong number (B9 arithmetic, B10 hex); B11 Field Guide entry rule unused;
+  B12 dropped C/Q. Asked: Terminate at bp #4 + unplug? Next (proposed): 4.2 unprivileged Thread
+  (nPRIV) + privileged-only access; 4.3 SVC back. Bench Map v174.
+
+### Plan check — session 22, 2026-11-11 13:37
+Pace measured: 22 sessions / ~29 days (≈0.75/day); phases 1–3 = 8 / 6 / ~6.5 sessions. Phase 4 at
+  4.1 done. Remaining estimate (tutor, extrapolated): P4 rest 4–5, P5 7–9, P6 6–8, P7 3–4, P8 4–5,
+  P9 3–4, P10 4–5, P11 3–4, P12 8–10, P13 6–10 → ~48–64 sessions → late Jan–mid Feb 2027 at
+  current pace (March if slower). Speed levers: addendum values only from traces, back-decode every
+  hex, Select-String before every file send; optional lighter format (merged build+board
+  predictions) from Phase 7 — decision deferred to Phase 6 close.  
+
+
+### Time box + GitHub — session 22, 2026-11-11 13:47–14:39
+Decision (user, 13:47): finish by 2026-12-06 (job search; interview-ready proof sooner). Plan: wk 1
+  (11–17 Nov) GitHub → 4.2 unprivileged Thread → 4.3 SVC → short P4 test; wk 2 (18–24 Nov) Phase 5
+  two-task PendSV switcher on PSP stacks; wk 3 (25 Nov–1 Dec) minimal Phase 6 FreeRTOS CM33_NTZ port
+  on our startup/.ld, 2 tasks + a queue; 2–5 Dec packaging (READMEs, Field Guide to P6, interview
+  drill bank, resume bullets); 6 Dec travel buffer. After: revision drills; P7–P12 optional. Lighter
+  format until then: 6–8 prediction rows, build + board predictions in one message, tutor drafts
+  routine code; lock / hardware evidence / log unchanged.
+4.1 Terminate + Remove All Terminated: CONFIRMED (user, 14:05).
+Git (user, 14:05): option C + public. Workspace repo: Count 0 tracked files from the scratch folder;
+  "frdmmcxn236_m33_scratch/" added to .git/info/exclude → gone from status (hello_world changes left
+  alone). New repo: git init -b main in frdmmcxn236_m33_scratch\. First git add staged Debug/,
+  .launch, .settings/ — .gitignore had been saved as "gitignore" → git rm -r --cached, renamed,
+  re-added → 8 files (.cproject, .gitignore, .project, README.md, learning_log.md, m33_scratch.ld,
+  source .c, .S). Author Mohammed Hafiz, GitHub noreply email. Root commit 4b89487 "Phases 0-4.1:
+  bare-metal Cortex-M33 on FRDM-MCXN236". Password push refused (GitHub needs browser or token) →
+  credential.helper manager, browser sign-in → pushed to
+  github.com/hafeezmhd/cortex-m33-bare-metal-mcxn236 (public), main tracks origin/main.
+Next: 4.2 unprivileged Thread mode (lighter format). Bench Map v178.
