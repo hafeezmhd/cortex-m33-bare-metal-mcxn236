@@ -20,6 +20,7 @@
 3.4: a real BusFault, and a handler that checks BFARVALID before using BFAR
 3.5: MemManage via the MPU
 4.1: Thread mode on the process stack (PSP_S)
+4.2: Thread mode unprivileged (CONTROL.nPRIV) under the 3.5 MPU
 */
 
 #include <stdint.h>
@@ -229,6 +230,12 @@ int main(void)
 	uint32_t ctrl_val;
 	__asm__ volatile ("mrs %0, control" : "=r" (ctrl_val) : : "memory");
 	ctrl_val |= (1u << 1);
+	__asm__ volatile ("msr control, %0" : : "r" (ctrl_val) : "memory");
+	__asm__ volatile ("isb" : : : "memory"); /* RSNGJ p.73 */
+
+	/* 4.2: drop Thread mode to unprivileged (CONTROL.nPRIV, bit 0) */
+	__asm__ volatile ("mrs %0, control" : "=r" (ctrl_val) : : "memory");
+	ctrl_val |= (1u << 0);
 	__asm__ volatile ("msr control, %0" : : "r" (ctrl_val) : "memory");
 	__asm__ volatile ("isb" : : : "memory"); /* RSNGJ p.73 */
 
