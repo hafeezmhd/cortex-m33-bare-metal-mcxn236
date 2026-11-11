@@ -1,0 +1,17 @@
+# build outputs
+Debug/
+Release/
+*.axf
+*.map
+*.o
+*.d
+*.su
+*.bin
+*.hex
+
+# IDE launch configs (may hold probe serial numbers) and local settings
+*.launch
+.settings/
+
+# reference documents (Arm/NXP copyright)
+*.pdf
