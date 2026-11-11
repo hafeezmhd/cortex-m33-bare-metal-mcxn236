@@ -3684,3 +3684,83 @@ Git (user, 14:05): option C + public. Workspace repo: Count 0 tracked files from
   credential.helper manager, browser sign-in → pushed to
   github.com/hafeezmhd/cortex-m33-bare-metal-mcxn236 (public), main tracks origin/main.
 Next: 4.2 unprivileged Thread mode (lighter format). Bench Map v178.
+
+### 4.2 issued — session 22, 2026-11-11 15:11 (lighter format)
+4.2 = Thread unprivileged: CONTROL.nPRIV RMW + ISB after the 4.1 block (after line 233), 3.5 MPU
+  unchanged (region 0 only, PRIVDEFENA 1). Tutor draft: header after line 22 + 5 lines (comment, mrs,
+  |= (1u<<0), msr control, isb RSNGJ p.73); ctrl_val reused (line 229); trigger line 235 kept.
+User asked Q1 CONTROL value written + bits kept; Q2 first faulting access (fetch/data, address from
+  the 4.1 objdump + new block size, MMFSR bit, MMFARVALID + rule, does line 235 run); Q3 stacking
+  privilege (Stack() p.2077 lines 22–27), PSP region, second MMFSR bit, how to tell from GDB whether
+  the frame was written (RQSSB p.148 IMPDEF; DAP not MPU-checked RVTTN p.317).
+Sources opened (pdftotext): IWCFH p.70; RMCCL p.281; RLLLP p.282; RXMRH p.88; MMFSR D1.2.167 p.1740
+  (IACCVIOL 0, DACCVIOL 1, MUNSTKERR 3, MSTKERR 4, MLSPERR 5, MMFARVALID 7); Stack() E2.1 p.2077;
+  PushStack E2.1.335 p.2061; RQSSB/RGJJG/RVKTX p.148; RGKVQ p.73; RRTKK/RNDML/RNSWG p.267; SHCSR
+  usage constraints p.1836 (unprivileged access generates a fault; kept for 4.2b). Bench Map v180.
+  
+### 4.2 reasoning round 1 — session 22, 2026-11-11 15:55
+Q1 accepted: CONTROL_S 0xF (RMW keeps SPSEL, FPCA, SFPA; p.763, D1.2.13) — "or 0xE" hedge noted.
+Q2 redo: first fault named as the data store to 0x2000_8040 — RMCCL p.281 (background map for
+  privileged accesses only) + RLLLP p.282 bullet 3 not applied to the next unprivileged access of any
+  kind; MMFARVALID tied to the wrong access type (RXMRH p.88); "does line 235 run" to re-answer.
+Q3 redo: "handler always privileged" vs Stack() p.2077 lines 22–27 + PushStack line 29 (mode =
+  CurrentMode() before entry); "PSP not in any restricted region" = the problem under RMCCL; MSTKERR
+  left conditional; GDB method → pre-fill pattern at bp #2 (3.5a method), range + command asked.
+Bench Map v181.
+
+### 4.2 reasoning accepted — session 22, 2026-11-11 16:11 (round 2)
+Q2: next access after the ISB = unprivileged instruction fetch; no region (RMCCL p.281 background map
+  privileged only; RLLLP p.282 bullet 3) → IACCVIOL, MMFARVALID 0 (RXMRH p.88); line 235 never runs.
+Q3: entry stacking unprivileged (Stack() p.2077 lines 22–27, PushStack line 29 mode = CurrentMode())
+  → MSTKERR; pre-fill method accepted.
+Corrected (recorded): fill range 0x2000_AFA8 / AF40 / 79A8 → 0x2000_AF98–0x2000_AFFF (26 words below
+  0x2000_B000; AFA8 slip 2nd time); scalar-to-array GDB set invalid → while-loop provided.
+File edit issued: header after 22, block after 233; expected header 23 / */ 24, block 236–240,
+  trigger 242, 269 lines. Bench Map v182.
+  
+### 4.2 file edit — session 22, 2026-11-11 16:26
+Select-String (source\): 4.1 header 22, 4.2 header 23, */ 24; isb 217 / 226 (old pairs); 4.1 block
+  ctrl_val 230, mrs 231, |= (1u<<1) 232, msr 233, isb 234; blank 235; 4.2 block comment 236, mrs 237,
+  |= (1u<<0) 238, msr 239, isb 240; trigger 242; isb 260; Count 270 (expected 269: extra blank 235,
+  harmless). Sources frozen for 4.2 (.S/.ld unchanged).
+Predictions R1–R8 asked (one message, before the build): text; first unprivileged fetch address /
+  RA; CFSR; MMFAR (VALID 0); psp_s; EXC_RETURN; words overwritten of 26 pre-filled at 0x2000_AF98
+  (RQSSB p.148); HFSR (RGJJG/RVKTX p.148).
+  
+### 4.2 predictions — session 22, 2026-11-11 16:36 (lock check)
+R1 1219; R2 0x27A; R3 0x1; R4 0x27A; R5 0x2000_AF98; R6 0xFFFF_FFE9; R7 0; R8 0.
+Lock flags: R1 16 B vs 4.1 build lesson (-O0 str/ldr around ctrl_val, isb 4 B); R2/R4 0x27A = old
+  image (4.1: isb 0x30A → block starts 0x30E); R3 drops own accepted Q3 MSTKERR; R4 "fetch address"
+  vs own Q2/RXMRH p.88 + logged valid-0 pattern (last literal/data address); R6 0xFFFF_FFE9 vs own
+  SPSEL 1 + 4.1 measured 0xFFFF_FFED (3rd); R7 reason ties stacking fault to the fetch (RQSSB = the
+  stacking accesses). Addendum allowed. Bench Map v183.
+  
+### 4.2 build — session 22, 2026-11-11 16:40
+0/0; FLASH 1232 B, RAMB 32 B; text 1227 data 4 bss 28 (4.1: 1203 → +24). main 0x220, prologue as 4.1,
+  4.1 block 0x2F0–0x30D unchanged; 4.2 block 0x30E mrs r3,CONTROL / 0x312 str [r7,#4] / 0x314 ldr /
+  0x316 orr.w #1 / 0x31A str / 0x31C ldr / 0x31E msr CONTROL,r3 / 0x322 isb (24 B); trigger ldr r3
+  0x326 (← 0x2000_8040 lit 0x3E8), ldr r2 0x328 (← 0xDEADBEEF lit 0x3EC), str 0x32A.
+Partial grades: R1 ❌ (1227; block 24 B), R2 ❌ (0x326; 0x32E = movw RVR). R3–R8 after the board.
+  bp #2 0x30E confirmed (first 4.2 mrs, still privileged).
+  
+### 4.2 board run — session 22, 2026-11-11 16:49 (graded)
+Launch "Temporary breakpoint 1, main () at …:178", pc 0x226; x/4i 0x30E = mrs r3,CONTROL / str
+  [r7,#4] / ldr / orr.w #1 → image 4.2. bp #2 0x30E (237), bp #3 0x206 (172).
+At "Breakpoint 2, main () at …:237": pc 0x30E, control_s 0xE, psp_s 0x2000_B000; x/26xw 0x2000_AF98
+  all 0 (pre-fill loop not run).
+At "Program received signal SIGSTOP, Stopped (signal). MemManage_Handler () at …:160": pc 0x1D0, lr
+  0xFFFF_FFED, control_s 0x1, msp_s 0x2000_FFF0, psp_s 0x2000_AF98; CFSR 0x0000_0011, HFSR 0, MMFAR =
+  BFAR = 0x2000_AFB0, SHCSR 0x0007_0001; x/26xw 0x2000_AF98 all 0.
+At "Breakpoint 3, 0x00000206 in MemManage_Handler () at …:172": pc 0x206.
+Learned: unprivileged fetch at 0x326 in no region → IACCVIOL (RMCCL p.281, RLLLP p.282 b3),
+  MMFARVALID 0 (RXMRH p.88); entry stacking unprivileged (Stack() p.2077) → MSTKERR; no frame word
+  written (real frame ≠ all zero), PSP still moved to 0x2000_AF98, EXC_RETURN 0xFFFF_FFED, HFSR 0, no
+  lockup. VALID-0 FAR = 0x2000_AFB0 = frame + 0x18 (RA slot): last data access = a stacking write
+  (4th sample of the pattern); suggests RA pushed first, stacking abandoned at first fault (RQSSB
+  p.148 IMPDEF; 1 sample, inference). CONTROL_S 0x1 in handler: nPRIV kept, SPSEL/FPCA/SFPA cleared;
+  handler privileged by mode (RWVRK p.70). RAM zero after power cycle (3rd sample).
+Grades: R1 ❌ R2 ❌ R3 ❌ R4 ❌ R5 ✅ R6 ✅ R7 ✅ R8 ✅ → 4/8.
+Weak points: hex encoding (R3 0x1001 for bits 0+4), size multiplier (R1), R4 code vs data address,
+  pre-fill loop skipped. Asked: Terminate at bp #3? Next (proposed): 4.3 SVC back to privileged —
+  (a) MPU off or (b) unprivileged flash + PSP regions. Bench Map v185.
+  
