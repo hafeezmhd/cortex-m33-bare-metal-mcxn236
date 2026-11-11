@@ -3764,3 +3764,27 @@ Weak points: hex encoding (R3 0x1001 for bits 0+4), size multiplier (R1), R4 cod
   pre-fill loop skipped. Asked: Terminate at bp #3? Next (proposed): 4.3 SVC back to privileged —
   (a) MPU off or (b) unprivileged flash + PSP regions. Bench Map v185.
   
+### Session 22 end (2026-11-11 17:31)
+Session ended at the user's request; continuation in a new chat (session 23) with
+  continuation_prompt_session23.txt. Image 4.2 in flash (first unprivileged fetch 0x326 → MemManage
+  IACCVIOL + MSTKERR, no frame stacked → parks at 0x206). Terminate after every run + board unplugged:
+  CONFIRMED. GitHub: 4b89487 → 4e83466 → 67e831f → 5dce57e (+ this log commit). 4.3 issued, not yet
+  edited (user owes SVC_Handler + Q1–Q3). TUTOR CORRECTION: 4.3 globals go after line 99
+  (g_mmfar_valid), not 98. Bench Map v187.
+
+### Session 22 summary (2026-11-10 / 2026-11-11)
+Scores: P3 self-test 2.55/5; 4.0 8.5/14; 4.1 build 5.5/12, board 11.5/16; 4.2 4/8.
+Closed: Phase 3 (self-test + GDB check + Field Guide Phase 3, renamed Phases 0–3). Phase 4: banked
+  state at main measured (CONTROL S/NS 0, MSP_S 0x2000_FFF0, PSP_NS 0xFFFF_FFFC, limits 0, SHPR2 0);
+  Thread on PSP (frame on PSP, EXC_RETURN 0xFFFF_FFED, handler on MSP); unprivileged Thread under a
+  one-region MPU faults on its first fetch (IACCVIOL) and its entry stacking is unprivileged (MSTKERR,
+  no frame, PSP still moved).
+Decisions: TIME BOX to 2026-12-06 (job search) + lighter format; Git option C, public GitHub repo
+  github.com/hafeezmhd/cortex-m33-bare-metal-mcxn236; 4.3 with the MPU off.
+New facts: -O0 stores/reloads named locals around each statement; MSR CONTROL writes nPRIV/SPSEL/FPCA/
+  SFPA (RMW needed); background map is privileged-only (RMCCL); stacking privilege = interrupted
+  context (Stack() p.2077); VALID-0 FAR = last data address (4 samples, inference); CONTROL_S keeps
+  nPRIV in Handler mode.
+Weak points: hex encoding and subtraction (right reason, wrong number); "× 4" size counts; addenda
+  changing right values; values from older images; skipped run steps; leading spaces in log headings.
+Strengths: 4.1 B1–B8; 4.2 reasoning round 2; GitHub setup end to end.
