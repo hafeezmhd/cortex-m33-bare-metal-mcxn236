@@ -3965,7 +3965,6 @@ learning_log.md 3,960 lines, 265 "###" headings, all at column 1, no duplicates;
   no blank line before "### Session 23 intake". Block file not attached; old-log prefix check not
   possible. Sources: .c 300 md5 8ebfd572…, .S 147 md5 59c309ec…, .ld 45 → image 4.3, unchanged.
   Bench Map v199 → v200.
-  
 ### 5.0 issued — session 24, 2026-11-16 12:13 (paper, lighter format)
 Intake answers: git HEAD = origin/main = e254435 "log: session 23 intake + 4.3 SVC + Phase 4
   closed" on c881678 / 6375ed1 (4.3 code) → owed commits done; status M learning_log.md (to
@@ -3976,7 +3975,59 @@ Intake answers: git HEAD = origin/main = e254435 "log: session 23 intake + 4.3 S
 Sources opened (pdftotext): ICSR PENDSVSET bit 28 W1S, banked, p.1676; B3.10 p.84 PendSV row;
   RCMTC p.80 (PendSV 14); SHPR3 PRI_14 23:16 p.1847; B3.19 figure p.107; EXC_RETURN p.1628–1629;
   RETPSR D1.2.221 p.1817 (T 24 / SFPA 20 / SPREALIGN 9 on p.1818). Bench Map v201.
-  
+### 5.0 partial send — session 24, 2026-11-16 18:25 (D1–D3 flagged; D0, D4–D6, Q1–Q3 owed)
+Theory detour (18:08): ARM vs NXP by address (no-address core regs + 0xE000_xxxx PPB = DDI0553/TRM;
+  0x4/0x5xxx_xxxx peripherals + memory map = RM; meeting points: IRQ numbers, priority bits,
+  MPU region count); ~20 core registers by job; NXP = 5-gate pattern (clock, reset, clock select,
+  pin mux, peripheral); recall by the step where each value was measured.
+D1 Task A 0x2000_8C00–0x2000_8FFF (top 0x2000_9000, 1 KB); D2 Task B 0x2000_9C00–0x2000_9FFF (top
+  0x2000_A000, 1 KB); D3 TCB_t {volatile uint32_t *pxTopOfStack; const char *pcTaskName}, globals
+  pxTaskA, pxTaskB, volatile TCB_t *pxCurrentTCB, .bss.
+Flags: F1 size without a reason (frame, exception stacking, call depth); F2 PSP_S_TOP is a point,
+  main's PSP range depends on D0; F3 new .bss globals vs MPU_TARGET_ADDR 0x2000_8040 (line 272);
+  F4 volatile on pointee vs pointer; F5 field offsets/struct size for the asm; F6 initialised
+  pcTaskName → .data, typedef not shown; F7 px prefix on structs, pxCurrentTCB = FreeRTOS global
+  (Phase 6 clash, inference). Arithmetic and 8-alignment right. Bench Map v202.
+### 5.0 check — session 24, 2026-11-16 18:37 (D0, D4–D6; Q1–Q3 + fixes owed)
+Accepted: D5 EXC_RETURN 0xFFFF_FFFD (low byte 1111 1101: S 1, DCRS 1, FType 1, Mode 1, SPSEL 1,
+  bit 1 0, ES 1 — back-decode matches; differs from 4.1 measured 0xFFFF_FFED only in FType); D6
+  initial PSPs 0x2000_8FC0 / 0x2000_9FC0 (top − 0x40); D4 16-word layout +0…+60 (R4 lowest … R11,
+  then R0 R1 R2 R3 R12 LR ReturnAddress RETPSR), RETPSR 0x0100_0000 (T 1, SPREALIGN 0, consistent
+  with 8-aligned hardware-frame base 0x2000_8FE0).
+Flags: F8 D0 "or bypass" (delete taken), FreeRTOS vTaskStartScheduler instead of our main, line
+  272 + MPU block undecided; F9 PC symbolic + bit-0 hedge (RWCGV p.121); F10 LR symbolic (Q2);
+  F11 "FPU disabled" vs CPACR enable in Reset_Handler; F12 all-zero values vs RAM-reads-0 pattern;
+  F13 DCRS/ES → no Additional state context uncited (RWCGV p.121); F14 back-check on stack, not
+  frame. Source opened: RWCGV p.121 ("Bit[0] of the ReturnAddress is discarded"; Additional state
+  context popped if S 1 and ES 0 or DCRS 0). Bench Map v203.
+### 5.0 fixes — session 24, 2026-11-16 18:48 (D0 accepted, F3 closed)
+D0 ACCEPTED: delete 4.1 PSP switch, 4.2 nPRIV, 4.3 svc call, MPU block (246–253) and line 272;
+  Phase 5 main = board/UART init, TCBs + initial frames, own PendSV start (no FreeRTOS).
+F3: .bss end 0x2000_8028 + 0x14 = 0x2000_803C (arithmetic right); store to 0x2000_8040 deleted
+  → margin moot, closed.
+Flags: F15 "aligns up to 0x2000_8040" / "at or just below" (two values; ALIGN(4) .ld line 43 on
+  0x803C); F16 SVC_Handler + g_svc_num/g_svc_count keep or delete (ties to 5.2 start path);
+  F17 F2 implied (main on MSP, PSP_S_TOP line 89 unused) — state it. Still owed: Q1–Q3, F1,
+  F4–F7, F9–F14. Bench Map v204.
+### 5.0 theory detour — session 24, 2026-11-16 18:54 (F4 method)
+Explained with a different example (UART ISR write pointer): volatile binds to what follows
+  the * (pointer variable) or precedes the type (pointee); read right to left. Volatile affects
+  only C accesses — PendSV in .S is unaffected; decide per object: written by PendSV AND read
+  by C? Own templates: REG32 (pointee volatile), g_lpflexcomm4_irq_count line 91. F4 decision
+  left to the user (table: saved-PSP field, current-task pointer, stack words).
+### 5.0 Q1–Q3 check — session 24, 2026-11-16 19:02 (one round; corrections carried)
+Q1: FType selects 8 vs 26 words (D1.2.96 p.1628–1629) ✅; consequence CORRECTED — State context at
+  the frame base in both shapes (B3.19 figure p.107), so R0…RETPSR from the same offsets, PC right,
+  no INVSTATE (T 1); mismatch = psp_s off by 0x48 after the start: FType 1 on 26 words leaves 18
+  words; FType 0 on 16 words unstacks 18 words above the stack top + FPCA ← 1 (RWCGV p.121, RQRWD
+  p.119) — inference, untested. Same mechanism as F11.
+Q2: trap-on-return idea ✅; still symbolic ("such as b ."); LR slot consumed by the task's bx lr /
+  pop pc (BX C2.4.29 p.584: bit[0] rule) vs PC slot discarded bit 0 (RWCGV p.121) → F10.
+Q3: reason accepted; corrections: "e.g. 0xFF" hedge (3 bits, 2.2a 0xFF → 0xE0); IRQ 39 = level 0
+  (IPR9 never written; 0 measured 2.5b-1/2.5c-1), not 4/0x80; SysTick 4 = 0x80 (line 283) ✅;
+  SHPR3 p.1847 = register, priority rule RCJDM/RRGCH p.93, deferral = tail-chain RFKXX p.127 (2.6).
+Sources opened: BX C2.4.29 p.584 ("bit[0] must be 1 … INVSTATE UsageFault"); RWCGV p.121.
+Still owed: F1, F4–F7, F9–F17. Bench Map v205.
 ### 5.0 closed — session 24, 2026-11-16 19:10 (F1–F17 checked; corrections carried)
 Accepted: F4 (uint32_t * volatile saved-SP field; current-TCB pointer volatile both sides), F5
   (offsets 0/4, size 8), F6 (.bss, name assigned at run time), F10 (LR bit 0 = 1, C2.4.29 p.584),
@@ -3995,3 +4046,23 @@ FINAL DESIGN: stacks A 0x2000_8C00–0x2000_8FFF (top 0x2000_9000), B 0x2000_9C0
   (top 0x2000_A000); PSP_A 0x2000_8FC0, PSP_B 0x2000_9FC0; frame 16 words (R4–R11 +0…+28, R0 R1
   R2 R3 R12 LR RA RETPSR +32…+60), RETPSR 0x0100_0000, LR = task_exit_trap|1; EXC_RETURN
   0xFFFF_FFFD; no FP in tasks until 5.4. 5.0 DONE. Next: 5.1 PendSV_Handler. Bench Map v206.
+### 5.1 issued — session 24, 2026-11-16 22:43 (lighter format)
+Log commit fe969db "log: session 24 intake + 5.0 scheduler design" pushed (37 insertions vs 8
+  issued blocks — counts asked: "^### 5.0" 7, "^### Session 24 intake" 1).
+5.1 = scheduler code without a trigger (PendSV pended only in 5.2). Tutor draft: .c header 25;
+  SCB_SHPR3_PRI14 66; TASK_A/B_STACK_TOP 89–90 (replace MPU_TARGET_ADDR + PSP_S_TOP); m33_tcb_t
+  106–109; g_tcb_a/b, g_cur_tcb, g_cnt_a/b 111–115; task_exit_trap 215, task_a 221, task_b 229,
+  task_frame_init 238 (body = C1); main 243; old 246–272 (MPU block, 4.1/4.2/4.3, trigger) → PRI_14
+  0xE0 + names + two task_frame_init calls 286–291; 318 lines with a 1-line C1. .S header 9–10,
+  slot 14 line 35 → PendSV_Handler, PendSV_Handler 124–129 after Default_Handler with .ltorg; no
+  weak pair (strong definition in the .S); 155 lines. Draft syntax-checked (scratch copy).
+User composes: C1 task_frame_init body; C2 PendSV_Handler core; Q1 first entry (g_cur_tcb 0, LR at
+  entry from main, LR before bx lr); Q2 R4–R11 vs State context + scratch registers; Q3 harmful
+  SysTick preemption point.
+Sources opened (pdftotext): STMDB C2.4.223 p.908–909; LDM C2.4.76 p.659, operation p.662; RWYWW
+  p.104 (step 4 LR = EXC_RETURN, step 8 SPSEL ← 0). Bench Map v207.
+### Log repair — session 24, 2026-11-16 22:52
+fe969db held only 2 of 7 "### 5.0" blocks (grep counts 2 / intake 1). All session-24 blocks
+  re-issued as one file (session24_log_blocks.md: intake → 5.1 issued + this block); the partial
+  session-24 tail replaced by the file. Expected after repair: "^### 5.0" 7, "^### 5.1" 1,
+  "^### Session 24 intake" 1, "^### Log repair" 1.
