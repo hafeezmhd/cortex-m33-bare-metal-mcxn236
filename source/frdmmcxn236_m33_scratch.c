@@ -21,6 +21,7 @@
 3.5: MemManage via the MPU
 4.1: Thread mode on the process stack (PSP_S)
 4.2: Thread mode unprivileged (CONTROL.nPRIV) under the 3.5 MPU
+4.3: SVC back to privileged (MPU off, SVC_Handler slot 11)
 */
 
 #include <stdint.h>
@@ -98,6 +99,9 @@ volatile uint8_t g_bfar_valid;
 volatile uint32_t g_mmfar = 0;
 volatile uint8_t g_mmfar_valid = 0;
 
+volatile uint32_t g_svc_num;   /* .bss; imm8 of the last svc (C2.4.242 p.947) */
+volatile uint32_t g_svc_count; /* .bss; SVC_Handler entries */
+
 static void uart4_putc(char c)
 {
 	while ((REG32(LPUART4_STAT) & LPUART4_STAT_TDRE) == 0u)
@@ -173,6 +177,29 @@ void MemManage_Handler(void)
 	{}
 }
 
+void SVC_Handler(void)
+{
+    uint32_t *stacked_sp;
+    __asm__ volatile (                 /* EXC_RETURN bit 2 = SPSEL (D1.2.96 p.1628) */
+        "tst lr, #4\n\t"
+        "ite eq\n\t"
+        "mrseq %0, msp\n\t"
+        "mrsne %0, psp\n\t"
+        : "=r" (stacked_sp)
+    );
+    uint32_t return_address = stacked_sp[6];   /* ReturnAddress at +0x18 (B3.19 p.107); next instr (RQLHB p.105) */
+    uint8_t svc_num = ((uint8_t *)return_address)[-2]; /* SVC T1 imm8 = bits 7:0 (C2.4.242 p.947), little-endian */
+    g_svc_num = svc_num;
+
+    uint32_t ctrl_val;
+    __asm__ volatile ("mrs %0, control" : "=r" (ctrl_val));
+    ctrl_val &= ~(1u << 0);            /* nPRIV = CONTROL bit 0 (D1.2.13 p.1480) */
+    __asm__ volatile ("msr control, %0" : : "r" (ctrl_val) : "memory");
+    __asm__ volatile ("isb" : : : "memory"); /* RSNGJ p.73 */
+
+    g_svc_count++;
+}
+
 int main(void)
 {
 	g_zero = g_init;
@@ -220,7 +247,7 @@ int main(void)
 	REG32(MPU_RBAR) = 0x20008045u;		// BASE 0x2000_8040, SH 00, AP 10 priv RO, XN 1
 	REG32(MPU_RLAR) = 0x20008041u;		// LIMIT 0x2000_805F, AttrIndx 0, EN 1
 	REG32(MPU_MAIR0) = 0x44u;			// Attr0 Normal Non-cacheable
-	REG32(MPU_CTRL) = 0x00000005u;		// PRIVDEFENA 1, HFNMIENA 0, ENABLE 1
+	REG32(MPU_CTRL) = 0x00000000u;		// 4.3: MPU off (RJVJC p.281); region 0 left programmed
 
 	__asm__ volatile ("dsb":::"memory"); // RSJQJ p.222 / RBMLS p.268
 	__asm__ volatile ("isb":::"memory"); // RNPDJ / RHMNM p.222, RWQQB p.268
@@ -238,6 +265,9 @@ int main(void)
 	ctrl_val |= (1u << 0);
 	__asm__ volatile ("msr control, %0" : : "r" (ctrl_val) : "memory");
 	__asm__ volatile ("isb" : : : "memory"); /* RSNGJ p.73 */
+
+	/* 4.3: SVCall back to privileged Thread (RQLHB p.105) */
+	__asm__ volatile ("svc #0" : : : "memory");
 
 	REG32(MPU_TARGET_ADDR) = 0xDEADBEEFu;
 

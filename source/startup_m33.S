@@ -5,7 +5,8 @@
  * 2.5a table to vector 55 + own IRQ 39 handler (static)
  * 3.1c: UsageFault vector override to UsageFault_Handler
  * 3.4: a real BusFault, and a handler that checks BFARVALID before using BFAR
- * 3.5: MemManage via the MPU*/
+ * 3.5: MemManage via the MPU
+ * 4.3: SVCall vector -> SVC_Handler*/
 
     .syntax unified
     .cpu    cortex-m33
@@ -27,7 +28,7 @@ __isr_vector:
     .word   0                  /* 0x20  8  reserved | ROM: image length      */
     .word   0                  /* 0x24  9  reserved | ROM: imageType 0=plain */
     .word   0                  /* 0x28 10  reserved | ROM: CRC / ext header  */
-    .word   Default_Handler    /* 0x2C 11  SVCall                            */
+    .word   SVC_Handler    	   /* 0x2C 11  SVCall                            */
     .word   Default_Handler    /* 0x30 12  DebugMonitor                      */
     .word   0                  /* 0x34 13  reserved | ROM: exec addr 0=XIP   */
     .word   Default_Handler    /* 0x38 14  PendSV                            */
@@ -140,3 +141,7 @@ Default_Handler:
     .weak MemManage_Handler
     .thumb_set MemManage_Handler, Default_Handler
     
+
+/* ---- Weak default for SVCall ---- */
+    .weak SVC_Handler
+    .thumb_set SVC_Handler, Default_Handler
