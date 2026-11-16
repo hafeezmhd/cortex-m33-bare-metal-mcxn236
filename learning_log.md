@@ -3958,3 +3958,40 @@ New facts: SVCall IPSR 11, SHCSR SVCALLACT bit 7 (0x0007_0080 with the 3 enables
 Weak points: lock flags ignored (no addendum; 7 flagged misses); entry CONTROL value (3× in one day);
   EXC_RETURN hex vs own SPSEL (4th); base addresses from older images; program order; rule IDs and
   symbolic addresses in the self-test; "_N" file name + "around line N".
+
+### Session 24 intake (2026-11-16 12:02)
+learning_log.md 3,960 lines, 265 "###" headings, all at column 1, no duplicates; ends with the
+  session-23 summary exactly once (line 3948); session-23 blocks 3791–3960 present once. Cosmetic:
+  no blank line before "### Session 23 intake". Block file not attached; old-log prefix check not
+  possible. Sources: .c 300 md5 8ebfd572…, .S 147 md5 59c309ec…, .ld 45 → image 4.3, unchanged.
+  Bench Map v199 → v200.
+  
+### 5.0 issued — session 24, 2026-11-16 12:13 (paper, lighter format)
+Intake answers: git HEAD = origin/main = e254435 "log: session 23 intake + 4.3 SVC + Phase 4
+  closed" on c881678 / 6375ed1 (4.3 code) → owed commits done; status M learning_log.md (to
+  commit with the 5.0 log). Breakpoints view EMPTY. Phase 5 step list approved ("go").
+5.0: user composes D0 main after start, D1/D2 stacks, D3 TCB + globals, D4 initial frame word by
+  word, D5 start EXC_RETURN (8-bit back-decode), D6 initial PSPs; Q1 frame vs FType, Q2 LR slot,
+  Q3 PendSV lowest priority.
+Sources opened (pdftotext): ICSR PENDSVSET bit 28 W1S, banked, p.1676; B3.10 p.84 PendSV row;
+  RCMTC p.80 (PendSV 14); SHPR3 PRI_14 23:16 p.1847; B3.19 figure p.107; EXC_RETURN p.1628–1629;
+  RETPSR D1.2.221 p.1817 (T 24 / SFPA 20 / SPREALIGN 9 on p.1818). Bench Map v201.
+  
+### 5.0 closed — session 24, 2026-11-16 19:10 (F1–F17 checked; corrections carried)
+Accepted: F4 (uint32_t * volatile saved-SP field; current-TCB pointer volatile both sides), F5
+  (offsets 0/4, size 8), F6 (.bss, name assigned at run time), F10 (LR bit 0 = 1, C2.4.29 p.584),
+  F11 rule (no FP in tasks until 5.4), F16 keep SVC_Handler + slot 11 + g_svc_*.
+Corrected (carried): F1 "~" counts, main not in a task chain, nested frames on MSP (4.1); F7
+  answered strings — FreeRTOS names (tskTaskControlBlock/TCB_t/pxCurrentTCB/prvTaskExitError) →
+  m33_tcb_t, g_tcb_a, g_tcb_b, g_cur_tcb, task_exit_trap; F9 bit 0 discarded (RWCGV p.121),
+  INVSTATE from RETPSR.T 0; "D1.2.19 p.1481" = Dn register (invalid citation); F11 no NOCP (CPACR
+  on) — failure = shared S16–S31 + 26-word frame vs FType-1 PendSV; lazy stacking already on (LSPEN
+  1); F12 two values + watermark → 0xA000_00nn / 0xB000_00nn; F13 Additional state context (R4–R11
+  + integrity signature) ≠ Additional FP context, RWCGV p.121 (ES 1, DCRS 1 → not popped); F14
+  0x2000_9000 − 0x2000_8FC0 = 0x40 = 16 × 4; F15 0x803C already aligned → __bss_end__ 0x2000_803C
+  (inference); F17 main on MSP, PSP_S_TOP deleted.
+Note: several answers described FreeRTOS's port instead of our design (generic-system pattern).
+FINAL DESIGN: stacks A 0x2000_8C00–0x2000_8FFF (top 0x2000_9000), B 0x2000_9C00–0x2000_9FFF
+  (top 0x2000_A000); PSP_A 0x2000_8FC0, PSP_B 0x2000_9FC0; frame 16 words (R4–R11 +0…+28, R0 R1
+  R2 R3 R12 LR RA RETPSR +32…+60), RETPSR 0x0100_0000, LR = task_exit_trap|1; EXC_RETURN
+  0xFFFF_FFFD; no FP in tasks until 5.4. 5.0 DONE. Next: 5.1 PendSV_Handler. Bench Map v206.
