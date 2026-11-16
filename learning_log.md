@@ -3735,6 +3735,15 @@ Lock flags: R1 16 B vs 4.1 build lesson (-O0 str/ldr around ctrl_val, isb 4 B); 
   SPSEL 1 + 4.1 measured 0xFFFF_FFED (3rd); R7 reason ties stacking fault to the fetch (RQSSB = the
   stacking accesses). Addendum allowed. Bench Map v183.
   
+### 4.2 predictions LOCKED — session 22, 2026-11-11 16:39 (addendum accepted)
+R1 text 1235; R2 first unprivileged fetch 0x32E; R3 CFSR 0x0000_1001; R4 MMFAR 0x32C; R5 psp_s
+  0x2000_AF98; R6 EXC_RETURN 0xFFFF_FFED; R7 0 of 26 words overwritten; R8 HFSR 0.
+Lock flags (recorded, grades stand): R1 "8 × 4 B" vs own list (four 2-byte str/ldr); R3 hex vs own
+  bits 0 + 4; R4 0x32C is a code address (valid-0 pattern = address the last data access read; 3.5
+  0x3B4 = literal read by ldr 0x2F2). Build + run issued in one go: size + disassemble main; temp bp
+  #1 (:178), bp #2 0x30E (pre-fill 0x2000_AF98–AFFF with 0xCAFEBABE), SIGSTOP reads (pc, lr, CONTROL,
+  MSP/PSP, CFSR, HFSR, MMFAR, BFAR, SHCSR, 26 words), bp #3 0x206, Terminate. Bench Map v184.
+  
 ### 4.2 build — session 22, 2026-11-11 16:40
 0/0; FLASH 1232 B, RAMB 32 B; text 1227 data 4 bss 28 (4.1: 1203 → +24). main 0x220, prologue as 4.1,
   4.1 block 0x2F0–0x30D unchanged; 4.2 block 0x30E mrs r3,CONTROL / 0x312 str [r7,#4] / 0x314 ldr /
@@ -3763,6 +3772,17 @@ Grades: R1 ❌ R2 ❌ R3 ❌ R4 ❌ R5 ✅ R6 ✅ R7 ✅ R8 ✅ → 4/8.
 Weak points: hex encoding (R3 0x1001 for bits 0+4), size multiplier (R1), R4 code vs data address,
   pre-fill loop skipped. Asked: Terminate at bp #3? Next (proposed): 4.3 SVC back to privileged —
   (a) MPU off or (b) unprivileged flash + PSP regions. Bench Map v185.
+   
+### 4.3 issued — session 22, 2026-11-11 16:59
+4.2 Terminate CONFIRMED; commits 67e831f (4.2 .c, 7 insertions) and 5dce57e (4.2 log, 81 insertions)
+  pushed. 4.3 option (a): MPU off (MPU_CTRL 0, region 0 writes kept; RJVJC p.281).
+Tutor draft: .c header after 23; line 223 MPU_CTRL 0x5 → 0x0; globals g_svc_num, g_svc_count after
+  98; "svc #0" after 240 (4.2 isb); .S slot 11 → SVC_Handler, weak pair after MemManage pair, header.
+User composes SVC_Handler (frame RA via PSP, imm8 at RA−2 → g_svc_num, nPRIV clear RMW + isb, count)
+  + Q1 stack/offset, Q2 svc address + imm8 byte + C expression, Q3 why CONTROL write in Handler mode
+  is safe for SPSEL/FPCA and which bit carries over.
+Sources opened: SVC T1 C2.4.242 p.947; RQLHB p.105 b3; RWCGV p.121; RQRWD p.119; RHVGB/RGKVQ p.73;
+  RJVJC p.281; SHPR2 p.1846. Expected end state: "Hello" + "IRQ 39 taken" on COM3. Bench Map v186.
   
 ### Session 22 end (2026-11-11 17:31)
 Session ended at the user's request; continuation in a new chat (session 23) with
@@ -3788,3 +3808,104 @@ New facts: -O0 stores/reloads named locals around each statement; MSR CONTROL wr
 Weak points: hex encoding and subtraction (right reason, wrong number); "× 4" size counts; addenda
   changing right values; values from older images; skipped run steps; leading spaces in log headings.
 Strengths: 4.1 B1–B8; 4.2 reasoning round 2; GitHub setup end to end.
+
+### Session 23 intake (2026-11-11 17:40)
+learning_log.md 3,789 lines, 251 "###" headings, all at column 1, no duplicates; ends with the
+  session-22 summary exactly once (line 3775). Old-log prefix check not possible (previous log not
+  attached). Gap: Bench Map v187 entries "4.2 predictions LOCKED (16:39)" and "4.3 issued (16:59)"
+  had no log block → restored below with their original times. Sources: .ld 45 / .S 142 md5 =
+  session 21 (unchanged); .c 270 lines, CRLF, md5 037214a2… = image 4.2. TUTOR CORRECTION (prompt
+  line map): LPUART4_DATARO 52 (not 51), SCB_CCR 70 (not 69), SCB_CFSR_MMFARVALID_Msk 85 (not 84).
+  Bench Map v187 → v188.
+### 4.2 predictions LOCKED — session 22, 2026-11-11 16:39 (restored session 23; addendum accepted)
+R1 1235; R2 0x32E; R3 0x0000_1001; R4 0x32C; R5 0x2000_AF98; R6 0xFFFF_FFED; R7 0; R8 0.
+Lock flags (recorded, grades stand): R1 "8 × 4 B" vs own list (four 2-byte str/ldr); R3 hex vs own
+  bits 0 + 4; R4 0x32C is a code address — logged valid-0 pattern = address the last data access
+  read (3.5: 0x3B4 = literal word read by ldr 0x2F2). Build + run issued in one go (bp #2 0x30E,
+  bp #3 0x206). Bench Map v184.
+### 4.3 issued — session 22, 2026-11-11 16:59 (restored session 23)
+4.2 Terminate CONFIRMED; 67e831f (4.2 code) + 5dce57e (4.2 log) pushed. Option (a): MPU off for 4.3
+  (MPU_CTRL 0, region writes kept; RJVJC/RDNXT p.281). Tutor draft: .c header, MPU_CTRL 0x0, globals
+  g_svc_num / g_svc_count, svc #0 after the 4.2 isb; .S slot 11 → SVC_Handler + weak pair + header.
+  User composes SVC_Handler (PSP frame RA → imm8 at RA−2, nPRIV clear RMW + isb, count) + Q1–Q3.
+  Sources opened: SVC T1 C2.4.242 p.947 (0xDF imm8, 16-bit); RQLHB p.105 bullet 3 (SVCall RA = next
+  instruction); RWCGV p.121; RQRWD p.119; RHVGB p.73; RJVJC p.281. Bench Map v186.
+  
+Intake answers (17:55): git HEAD = origin/main = 6b717cf "log: session 22 end + summary" (on 5dce57e)
+  → session-22 end commit pushed. IDE Breakpoints view EMPTY. Bench Map v189.
+  
+### 4.3 composition check — session 23, 2026-11-11 19:16 (one round, accepted with corrections)
+Handler accepted: tst lr,#4 / ite eq / mrseq msp / mrsne psp → stacked_sp; RA = stacked_sp[6];
+  imm8 = ((uint8_t *)RA)[-2]; CONTROL RMW clears bit 0 + isb; g_svc_num, g_svc_count++. lr =
+  EXC_RETURN at the tst relies on the -O0 leaf prologue (push {r7}) — check in objdump (inference).
+Corrections carried (recorded): placement "around line 170 in …_4.c" → after line 174 of
+  frdmmcxn236_m33_scratch.c ("_N" slip, 3rd session); Q1 frame is 26 words (FPCA 1 after lines
+  179–180; 4.1 measured 0x2000_B000 → 0x2000_AF98), +0x18 holds (State context at frame base, B3.19
+  p.107), slot names ReturnAddress/RETPSR; Q2 "or" alternative (first used), citations RQLHB p.105
+  b3, C2.4.242 p.947, D1.2.3 p.1459, RXKDD p.105; Q3 RMW does not preserve Thread SPSEL/FPCA — entry
+  already changed them (RHVGB p.73; 4.1 control_s 0, 4.2 0x1 in handler); privileged MSR CONTROL
+  writes SPSEL/FPCA (C2.4.126 p.763 l.108–112), SPSEL only unused in Handler (INMBL p.73); return
+  restores SPSEL from EXC_RETURN (RWCGV p.121) and FPCA = NOT FType (RQRWD p.119); nPRIV carries ✅.
+  No citations in Q1–Q3 (asked).
+Sources opened (pdftotext): RWCGV p.121; RQRWD p.119; RGKVQ/RSNGJ/RHVGB/INMBL p.73; RQLHB/RXKDD
+  p.105; SVC C2.4.242 p.947; MSR C2.4.126 p.763; EXC_RETURN p.1628; frame figure p.107.
+File edit issued: .c header 24 / */ 25, globals 101–102, handler 179–200, main 202, MPU_CTRL 249,
+  svc 267–268, trigger 270, 298 lines; .S header 9, slot 11 line 31, SVCall pair 144–146, 147 lines.
+  Bench Map v190.
+  
+### 4.3 saved-file check round 2 — sources frozen — session 23, 2026-11-16 10:37
+Files attached; diff vs 4.2 = agreed edits only: header 24 (*/ 25); globals 102–103 (after the old
+  blank 101) + blank 104; blank + SVC_Handler 180–201 + blank; MPU_CTRL 0x0 at 250; blank 268, 4.3
+  comment 269, svc #0 270 (trigger 272). .S: header 4.3 line 9 (*/ moved); slot 11 line 31 =
+  SVC_Handler; blank + comment + .weak/.thumb_set SVC_Handler 144–147 after the old 4-space line 143;
+  EOF newline now present. .c 300 lines md5 8ebfd572…, .S 147 md5 59c309ec…, CRLF; .ld unchanged.
+  The two extra lines vs expected 298 = blanks (harmless). Sources frozen for 4.3. R1–R8 asked.
+  Bench Map v192.
+  
+### 4.3 build — session 23, 2026-11-16 10:50 (predictions locked as sent: build started, no addendum)
+size text 1327 data 4 bss 36 (IDE build output / FLASH-RAMB Used Size not pasted — asked). nm:
+  uart4_putc 0xE0, SysTick 0x114, LP_FLEXCOMM4 0x14C, UsageFault 0x168, BusFault 0x180, MemManage
+  0x1D0, SVC_Handler 0x220 (0x60), main 0x280 (0x1FC), Reset 0x47C, Default 0x4D0, uart4_puts 0x4D4,
+  __data_load__ 0x530; .bss g_svc_num 0x2000_8018, g_svc_count 0x801C, tick.0 0x8020, g_bfar_valid
+  0x8024, g_mmfar_valid 0x8025, __bss_end__ 0x2000_8028. .isr_vector slot 11 (0x2C) 0x0000_0221,
+  word1 0x47D, Default 0x4D1. SVC_Handler: push {r7} / sub sp,#20 / add r7,sp,#0; tst.w lr,#4 0x226 /
+  ite eq / mrseq MSP 0x22C / mrsne PSP 0x230; ldr [r3,#24] 0x238; subs #2 / ldrb 0x23E–0x240; str
+  g_svc_num 0x248 (lit 0x278); mrs CONTROL 0x24A; bic.w #1 0x252; msr CONTROL 0x25A; isb 0x25E;
+  count 0x262–0x26A (lit 0x27C); bx lr 0x276. main: 4.2 isb 0x382, svc 0 (df00) 0x386, trigger ldr
+  0x388, str 0x38C; bl uart4_puts 0x39E; for(;;) nop 0x3DA / b.n 0x3DC; pool pad nop 0x3DE.
+Learned: 1327 = 1227 (4.2) + 96 (SVC_Handler) + 2 (svc) + 2 (pool pad); MPU_CTRL movs #5 → #0 same
+  size; SVC_Handler has literals → 4-aligned group, source order after MemManage (0x1D0 + 0x50);
+  lr untouched before tst (leaf prologue) — confirmed in the listing.
+Partial grades: R1 ❌ (1327) R2 ✅ (0x220 / 0x0000_0221) R3 ❌ (0x386). R4–R8 after the board.
+Board issued: bp #2 0x386, #3 0x220, #4 0x262, #5 0x388, #6 0x3DA; Terminate at #6; COM3 after
+  RESET without debugger. Bench Map v194.
+  
+IDE build (10:49): 0 errors / 0 warnings; FLASH 1332 B (1327 + 4 + 1 pad), RAMB 40 B
+  (0x2000_8000–0x2000_8027); size line = objdump size.
+  
+### 4.3 board run — session 23, 2026-11-16 10:58 (graded 11:02)
+Launch "Temporary breakpoint 1, main () at …:205", pc 0x286; bp #2 0x386 (270), #3 0x220 (181),
+  #4 0x262 (200), #5 0x388 (272), #6 0x3DA (298), all hardware.
+At "Breakpoint 2" (0x386, svc): control_s 0xF, psp_s 0x2000_B000, msp_s 0x2000_FFF0.
+At "Breakpoint 3, SVC_Handler () at …:181" (0x220): lr 0xFFFF_FFED, xpsr 0x6900_000B (IPSR 11
+  SVCall; Z C Q T), control_s 0x1, psp_s 0x2000_AF98, msp_s 0x2000_FFF0, SHCSR 0x0007_0080
+  (SVCALLACT 7 + MEM/BUS/USGFAULTENA); x/8xw 0x2000_AF98: 0x534, 0x2000_8028, 0, 0xF, 0x4, 0x4B7,
+  0x388, 0x6910_0000.
+At "Breakpoint 4" (0x262): control_s 0x0; g_svc_num 0; g_svc_count 0.
+At "Breakpoint 5, main () at …:272" (0x388): $sp = psp_s 0x2000_B000, control_s 0xE, msp_s
+  0x2000_FFF0, g_svc_count 1.
+At "Breakpoint 6, 0x000003da in main () at …:298": control_s 0xE, [0x2000_8040] 0xDEADBEEF,
+  g_lpflexcomm4_irq_count 1. Terminate at bp #6 CONFIRMED.
+COM3 after RESET (no debugger): "Hello" / "IRQ 39 taken".
+Learned: with the MPU off, unprivileged fetch + svc work; SVCall RA = next instruction 0x388
+  (RQLHB p.105 b3); frame 26 words on PSP (FPCA 1), EXC_RETURN 0xFFFF_FFED; entry keeps nPRIV and
+  clears SPSEL/FPCA/SFPA (control_s 0x1; RHVGB p.73); handler RMW clears nPRIV → 0x0 (C2.4.126
+  p.763, isb RSNGJ p.73); return: SPSEL ← EXC_RETURN.SPSEL (RWCGV p.121), FPCA ← NOT FType (RQRWD
+  p.119), SFPA ← RETPSR bit 20 → control_s 0xE = privileged Thread on PSP; nPRIV is the only bit
+  that carries. Stacked R3 0xF = 4.2 block's CONTROL value, R2 0 = movs r2,#0 at 0x344 (MPU_CTRL);
+  R0/R1 = Reset_Handler leftovers (0x534 = __data_load__ end, __bss_end__ 0x2000_8028 — 4th sample);
+  LR 0x4B7 = Reset bl-main return | 1. 3.5 trigger store now completes (MPU off, privileged).
+Grades: R1 ❌ R2 ✅ R3 ❌ R4 ❌ R5 ✅ R6 ❌ R7 ❌ R8 ❌ → 2/8.
+Weak points: every miss had its value in the log and was flagged at lock (4.2 objdump base for
+  R1/R3/R4; 4.2 CONTROL_S 0x1 in handler for R6; 4.1/4.2 0xFFFF_FFED for R7 — 4th hex miss; R8
+  program order) → no addendum was sent; "~" size again. 4.3 DONE. Next: Phase 4 self-test.
