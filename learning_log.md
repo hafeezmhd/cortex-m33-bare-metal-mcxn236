@@ -4239,3 +4239,104 @@ Sources opened (pdftotext): FPCCR D1.2.100 p.1633 (ASPEN 31: FP instruction sets
   banked); RQRWD p.119 (return without tail-chain: CONTROL.FPCA ← NOT EXC_RETURN.FType); SHCSR
   PENDSVACT bit 10 p.1840 (banked); ICSR PENDSVSET bit 28 p.1676 (W1S, writes of zero ignored,
   read = pending, resets 0). Bench Map v220.
+### 5.2 composition check — session 25, 2026-11-17 17:12 (one round; corrections carried)
+C1 position "after task_frame_init B" accepted; line 274 ❌ (= 308 after +3; block 309–312);
+  rule for PendSV taken missing (level 7 vs Thread priority 256, RVJPG p.93). Contradiction:
+  SYST_CSR (320) after the block → SysTick never enabled, but Q5 assumes SysTick → C1 decision
+  re-asked (keep 308, or later line N); lost evidence with 308: COM3, LED toggle, line-141 halt.
+Q1 ❌ 0xFFFF_FFFD (= value loaded at .S 142, not the entry LR; main on MSP + FPCA 1 → logged
+  5.1 Q1b correction 0xFFFF_FFE9 as 2.4; decode read [3:0] as FType). Q2 8 words ❌ (FPCA 1 →
+  26-word shape, 2.4); msp_s "0x2000_C000 or equivalent" ❌ (__stack_top 0x2001_0000; base = main
+  Thread sp from the objdump); never popped ✅ (line 142 overwrites LR). Q3 control_s 0x2 ✅ value
+  / reason ½ (RWCGV p.121, RQRWD p.119, RETPSR SFPA 0); xPSR 0x0100_0000 ✅ value / reason ½;
+  psp_s 0x2000_8FC0 ❌ (saved PSP before ldmia + msr + unstacking). Q4 ❌ mechanism (lazy armed at
+  entry with FPCA 1: logged 2.4 FPCCR 0xC000_001D, RSGKY/RZWQX p.108–109 → LSPACT 1, FPCAR = FP
+  slot in main's MSP frame, not UNKNOWN). Q5 PSP / 0xFFFF_FFFD right only if SysTick runs;
+  reason lacks FType (FPCA 0 in task_a). Owed: C1 decision, Q1 redo, Q5 aligned.
+### 5.2 composition accepted — session 25, 2026-11-17 17:24 (round 2; corrections carried)
+C1 ACCEPTED: pend block after line 308 (309–312); lines 313–338 never run (no Hello, no
+  SysTick, no IRQ 39, no main for(;;)); rule level 7 vs Thread priority 256 accepted, ID not cited
+  (RVJPG p.93). Q1 0xFFFF_FFE9 ✅ (typo second string "0xFFFFFFFEE9" ignored); source ½ (quote =
+  5.1 Q1b correction; measurement = log 2.4); decode ❌ bit map shifted — correct (D1.2.96
+  p.1628–1629): ES 0 = 1 Secure, bit 1 RES0 0, SPSEL 2 = 0, Mode 3 = 1, FType 4 = 0, DCRS 5 = 1,
+  S 6 = 1, bit 7 RES1 (user: bit 0 = S "Non-secure", bit 1 = DCRS, 7:5 reserved). Q5 aligned ✅
+  (SysTick/IRQ 39 never enabled; "if enabled" PSP / 0xFFFF_FFFD to check in 5.3).
+Edit target: .c 339 lines (header 26, */ 27, SCB_ICSR 68, PENDSVSET 69, toggle 141, main 260,
+  frames 307–308, pend block 309–312, SYST_RVR 316, SYST_CSR 324, for(;;) 337); .S unchanged
+  (md5 91834c10…). Scratch copy syntax-checked. Select-String + line count + .S hash asked.
+### 5.2 edit check — session 25, 2026-11-17 17:29 (Select-String: 2 extra lines)
+.c 341 lines vs 339: +1 between 67 (PRI14) and 69 (SCB_ICSR, target 68); +1 between 309 (frame
+  B) and 311 (pend comment, target 309); all later lines +2 (main 261, SYST_RVR 318, for(;;) 339).
+  Item contents match the draft; .S MD5 91834C10… unchanged. Bracketed dump: lines 68 and 310
+  empty (71/315 = original blank lines, kept) → 68 and 310 deleted.
+### 5.2 edits verified — session 25, 2026-11-17 17:54
+Select-String after deleting the two blank lines (68, 310): .c 339 lines; 26 header, 27 */,
+  67 PRI14, 68 SCB_ICSR, 69 PENDSVSET, 141 toggle, 213 SVC isb, 260 main, 300/301 dsb/isb, 307/308
+  frames, 309–312 pend block, 316 SYST_RVR, 324 SYST_CSR, 328/329 dsb/isb, 337 for(;;) → all
+  match. .S MD5 91834C10… unchanged. Predictions R1–R8 asked before the build: R1 build + size;
+  R2 nm main/task_a/PendSV_Handler/__data_load__; R3 lr, R4 msp_s/psp_s/g_cur_tcb, R5
+  FPCCR/FPCAR at PendSV entry; R6 pc/psp_s/control_s/xPSR/g_cur_tcb, R7 FPCCR/FPCAR at task_a
+  first instruction; R8 g_cnt_a/g_cnt_b/COM3/LED at the 100th hit of the line-228 bp.
+### 5.2 predictions — session 25, 2026-11-17 18:42 (R1–R8 received; locked with flags)
+R1 0/0, text ~1559 / data 4 / bss 64; R2 main 0x34C, task_a 0x280, PendSV_Handler 0x562,
+  __data_load__ "unchanged"; R3 lr 0xFFFF_FFE9; R4 msp_s 0x2000_FF88, psp_s no prediction,
+  g_cur_tcb 0; R5 FPCCR 0xC000_0005, FPCAR 0x2000_FF88; R6 pc 0x280, psp_s 0x2000_8FC0,
+  control_s 0x2, xPSR 0x0100_0000, g_cur_tcb "address of g_tcb_a"; R7 FPCCR 0xC000_0004, FPCAR
+  0x2000_FF88; R8 g_cnt_a 99, g_cnt_b 0, COM3 none, LED OFF.
+Lock flags (no answers): R1b "~" + "+12 B" vs logged size rules (dsb/isb 4 B, modified-immediate
+  store 8 B + literal); R2 no reasons, R2c vs own R1 (PendSV after main), R2d no value; R3 reason
+  "FType 1" vs own value/decode, source = 5.1 Q1b correction; R4a "FType 1", base sp not derived
+  (0xFF88 = 2.4 handler sp, older image); R4b no prediction on a loggable row; R5a 0x5 bit 2 not
+  in reason, bits 3–4 vs logged 2.4 0xC000_001D; R5b value = frame base vs reason "FP space" (B3.19
+  p.107); R6 label "first instruction (g_cnt_a++)"; R6b value before ldmia/msr/unstacking vs own
+  reason (Q3 correction carried); R6c FPCA/SFPA not covered; R6e symbolic; R7a log 2.4 has no
+  after-return FPCCR, no rule; R8d "low → OFF" vs logged ACTIVE-LOW LED. Addendum allowed until
+  Build. Procedure: build + size/nm/objdump paste first (bp addresses confirmed), then board.
+### 5.2 build — session 25, 2026-11-17 18:45 (locked as sent; build rows graded)
+Build 0/0 (4 s); FLASH 1572 B (1567 + 4 + 1 pad), RAMB 68 B; size text 1567 data 4 bss 64 (5.1
+  1547/4/64 → +20 / 0 / 0). nm: task_a 0x280, main 0x34C, PendSV_Handler 0x576, __data_load__
+  0x620, g_tcb_a 0x2000_8020, g_cur_tcb 0x8030, g_cnt_a 0x8034, g_cnt_b 0x8038. main prologue
+  push {r7,lr} / sub sp,#8 / add r7,sp,#0 (unchanged); pend block 0x424 ldr r3 ← 0x4F4 (0xE000_ED04)
+  / 0x426 mov.w r2,#0x10000000 / 0x42A str / 0x42C dsb / 0x430 isb; first never-run 0x434
+  (SYST_RVR); task_frame_init literals 0x4E4 0x281 / 0x4EC 0x295; names 0x5E0 / 0x5E8. +20 = 16 B
+  code + 1 literal; everything after main +0x14. task_a 0x280 push {r7}, 0x282 add r7, loop
+  0x284–0x28E (b.n 0x284), literal 0x290 = g_cnt_a.
+Grades: R1 ½ (0/0 ✅; text 1559 ❌ +12 vs +20; data/bss ✅); R2 ¼ (main ½, task_a ½ — values
+  right, no reasons; PendSV_Handler 0x562 ❌; __data_load__ no value ❌). Board bps: *0x576,
+  *0x280, line 228 (expected 0x284) + ignore 99. Bench Map v221.
+### 5.2 measured + graded — session 25, 2026-11-17 18:56 (5.2 DONE)
+Result (raw): stop-at-main line 262; slot 14 [0x38] 0x0000_0577. bp 0x576 (PendSV entry, startup
+  .S 128): pc 0x576, lr 0xFFFF_FFE9, msp_s 0x2000_FF88, psp_s 0x0, control_s 0x0, xPSR 0x0900_000E
+  (IPSR 14, Q, T), g_cur_tcb 0, FPCCR 0xC000_047D, FPCAR 0x2000_FFA8, SHCSR 0x0007_0400, ICSR
+  0x0000_080E; frame 0x2000_FF88: R0 0x2000_8028, R1 0xB000_0000, R2 0x1000_0000, R3 0xE000_ED04,
+  R12 4, LR 0x425, RA 0x430, RETPSR 0x0910_0000; FP slot 0x2000_FFA8–FFC8 0, 0xFFD0–FFEC stale
+  (0xB000_0000 0x295 0x2000_A000 0x2000_8028 0x2000_9FC0 0xC 0 0x2000_FFF0). bp 0x280 (task_a
+  entry): pc 0x280, control_s 0x2, psp_s 0x2000_9000, msp_s 0x2000_FF88, xPSR 0x0100_0000,
+  g_cur_tcb 0x2000_8020, FPCCR 0xC000_047D, FPCAR 0x2000_FFA8, SHCSR 0x0007_0000, ICSR 0. bp 4 line
+  228 = 0x284, ignore 99 → 100th hit: pc 0x284, g_cnt_a 0x63 (99), g_cnt_b 0, g_cur_tcb 0x2000_8020,
+  psp_s 0x2000_8FFC, control_s 0x2. LED steady ON, no blink (run and after RESET); COM3 empty after
+  RESET. Terminated while halted.
+Findings: (1) entry from main = Thread/MSP/FPCA 1 → EXC_RETURN 0xFFFF_FFE9, 26 words 0xFFF0 →
+  0xFF88; main's frame never popped (msp_s 0xFF88 still at task_a). (2) RA 0x430 = the isb →
+  PendSV taken after the dsb, before the isb (2nd sample after 2.5d-2 IRQ 39 RA 0x226); R2/R3 =
+  the pend-write registers, LR slot 0x425 = stale bl return of the 2nd task_frame_init call.
+  (3) FPCCR at entry 0xC000_047D = ASPEN 31, LSPEN 30, UFRDY 10, BFRDY 6, MMRDY 5, HFRDY 4,
+  THREAD 3, S 2, LSPACT 0 (2.4 had 0x1D: no UF/BF/MM RDY — fault handlers not enabled then;
+  inference); FPCAR = frame + 0x20 (State context 8 words, B3.19 p.107); slot reserved, not
+  written. (4) after the start LSPACT is STILL 1 and FPCAR still points into main's dead MSP frame
+  (exception return with FType 1 left the lazy state alone — measured; 5.4 risk: the first FP
+  instruction in a task would preserve into 0x2000_FFA8, inference). (5) control_s 0x0 in PendSV
+  (entry clears FPCA/SFPA/SPSEL), 0x2 in task_a (SPSEL ← EXC_RETURN, FPCA ← NOT FType 1, SFPA ←
+  RETPSR 0, nPRIV 0); xPSR = RETPSR 0x0100_0000 → Q 0 in task_a. (6) psp_s 0x2000_9000 at entry
+  (ldmia +0x20 → 0x8FE0, unstack +0x20), 0x8FFC after push {r7}. (7) ICSR PENDSVSET cleared at
+  entry (0x80E: VECTACTIVE 14, RETTOBASE 1); SHCSR PENDSVACT bit 10 set in PendSV, cleared after.
+Grades: R1 ½; R2 ¼; R3 ½ (value ✅, reason "FType 1" + source); R4 ⅓ (a ½ value ✅ / reason FType
+  1 + base not derived; b ❌ no prediction on a loggable row — 4.0 PSP_S 0, no PSP writer in
+  Phase 5 main → 0 measured; c ½ value ✅ / .S lines 100–107 = .data copy, bss loop 104–111);
+  R5 0 (a 0xC000_0005 vs 0xC000_047D; b frame base vs base + 0x20); R6 ⅝ (a ✅, b ❌ 0x2000_8FC0 vs
+  0x2000_9000, c ½, d ✅, e ungraded symbolic); R7 0 (a LSPACT stays 1; b 0x2000_FF88 vs FFA8);
+  R8 ¾ (a 99 ✅, b ✅, c ✅, d ❌ OFF vs steady ON — ACTIVE-LOW). Total ≈ 3/8 (2.96).
+Weak points: flagged contradictions not fixed by an addendum (8 of 8 flagged rows, as 4.3);
+  FType bit read backwards in reasons although the decode table was accepted; FPCAR = slot, not
+  frame base; lazy state after a FType-1 return assumed cleared without a rule. Strengths: R3/R4a
+  values, R6a/c/d, R8 counting rule (bp before the line → 99). 5.2 DONE. Next: 5.3. Bench Map v222.
