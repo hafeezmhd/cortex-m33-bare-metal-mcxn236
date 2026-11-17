@@ -4066,3 +4066,106 @@ fe969db held only 2 of 7 "### 5.0" blocks (grep counts 2 / intake 1). All sessio
   re-issued as one file (session24_log_blocks.md: intake → 5.1 issued + this block); the partial
   session-24 tail replaced by the file. Expected after repair: "^### 5.0" 7, "^### 5.1" 1,
   "^### Session 24 intake" 1, "^### Log repair" 1.
+
+### Field Guide register map — session 24, 2026-11-16 23:31
+Field Guide (doc 8724fa96, rev 40 → 42): new section "Register map: ARM vs NXP, by job" before
+  Quick reference — owner rule by address (no address / 0xE000_xxxx = DDI0553; 0x4/0x5xxx_xxxx +
+  memory map = RM); ARM table 19 jobs with DDI0553 section + logged value + step; NXP table by the
+  five gates with RM section + step (1e.3a, 1e.3e, 1d, 3.4); meeting points (IRQ numbers, 3 priority
+  bits, 8 MPU regions). Bench Map v210.
+### Theory detour — session 24, 2026-11-17 12:48 (own startup code?)
+Yes: startup_m33.S + m33_scratch.ld hand-written in Phase 1 (1a.3 .ld memory map, __stack_top,
+  .isr_vector first; 1a.4 vector table + Thumb bit + ROM header slots 8–10/13 = 0, RM Table 158;
+  1b.3 .data copy / .bss zero; 1b.4b CPACR FPU enable). No SDK startup, no SystemInit: core runs on
+  the ROM's 48 MHz FRO (1e.2a). Phase 5 touches only slot 14 + PendSV_Handler.
+### 5.1 composition check — session 24, 2026-11-17 13:18 (one round; corrections carried)
+Theory detour (12:48): own startup code? Yes — startup_m33.S + m33_scratch.ld hand-written in
+  Phase 1 (1a.3/1a.4/1b.3/1b.4b); no SDK startup, no SystemInit (ROM's 48 MHz FRO, 1e.2a).
+C1 accepted: 16 words below the top, R0–R3/R12, RETPSR 0x0100_0000, sp = frame base. Corrected:
+  FreeRTOS names/signature again (TCB_t, pxTopOfStack, prvTaskExitError, uint32_t * top) → draft
+  signature; R4–R11 = tag|0–7 duplicated R0–R3 → tag|4–11; |1 on PC only → neither (C function
+  address carries bit 0 — verify in the dump).
+C2 accepted: mrs psp / stmdb r0! / str [cur] / ldr [next] / ldmia r0! / msr psp / bx lr. Corrected:
+  bl vTaskSwitchContext + pxCurrentTCB (FreeRTOS, undefined here) → other-TCB compare in asm; no
+  NULL check (despite Q1a) → cbz; LR not loaded → ldr lr, =0xFFFFFFFD.
+Q1a ✅ skip save (str to address 0 otherwise); Q1b ❌ "0xFFFF_FFFD measured 4.1" (4.1 = 0xFFFF_FFED;
+  Phase 5 main on MSP + FPCA 1 → 0xFFFF_FFE9 as 2.4 → bx lr would return to main); Q1c value ✅, not
+  in code. Q2 ✅ (State context by hardware, R4–R11 callee-saved; scratch r0–r3, r12). Q3 ❌ yes →
+  no (SysTick nested on MSP, AAPCS keeps R4–R11, never touches PSP/g_cur_tcb, only pends PendSV →
+  one extra switch; reasoning, check in 5.3); "0xFF / 0xE0" hedge.
+Final: .c 332 lines (task_frame_init 238–255, main 257, 5.1 block 300–305, bp line 309 SYST_RVR);
+  .S 170 lines (PendSV_Handler 127–144). C syntax-checked on scratch copies; .S not assembled here.
+Watch for 5.2 (inference): main's 26-word MSP frame never popped; FPCCR.LSPACT left 1.
+Bench Map v211.
+### 5.1 edit check — session 24, 2026-11-17 13:47 (Select-String: 4 mismatches)
+(1) header lines mixed up: .c line 25 = main-block comment text, .S line 10 = .c header text;
+(2) C1 body not applied (no "tcb->sp = p;", main at 244 = placeholder still in place);
+(3) .c +1 line between 66 and 90 (TASK_* at 90–91, expected 89–90);
+(4) .S +1 line between 115 and 126 (PendSV block 126–145, expected 125–144).
+C2 core present (cbz 131, bx lr 144); slot 14 line 35 ✅; PRI14 line 66 ✅. Numbered dumps
+  asked (.c 85–92, .S 8–11 + 118–130), then fixes, Select-String again, build + size line.
+  Bench Map v212.
+### 5.1 edits verified — session 24, 2026-11-17 14:00
+Select-String after fixes: .c 25 header, 66 PRI14, 89–90 TASK_*, 109 m33_tcb_t, 111–113 globals,
+  215/221/229 task_exit_trap/task_a/task_b, 238 task_frame_init, 254 tcb->sp, 257 main, 300–305
+  5.1 block, 309 SYST_RVR; .S 10 header, 35 slot 14, 125–127, 130 cbz, 143 bx lr, 144 .ltorg →
+  all match the target table.
+Predictions R1–R8 asked before the build: R1 errors/warnings; R2 text/data/bss vs 4.3 (1327/4/36);
+  R3 __bss_end__; R4 slot 14 word vs nm; R5 SHPR3 at bp line 309; R6 both TCBs; R7 frame A 16 words;
+  R8 frame B vs A + continue 5 s (g_cur_tcb, g_cnt_a/b, COM3, LED). Bench Map v213.
+### 5.1 predictions — session 24, 2026-11-17 14:14 (R1–R8 received; addendum allowed until the build)
+R1 0 errors / 0 warnings; R2 text 1459 / data 4 / bss 64 (+132 text, +28 bss); R3 __bss_end__
+  0x2000_8064; R4 slot 14 0x0000_0371 (PendSV_Handler | 1); R5 SHPR3 0x80E0_0000 at bp 309;
+  R6 g_tcb_a.sp 0x2000_8FC0, name "address of TaskA" (flash .rodata), g_tcb_b.sp 0x2000_9FC0, name
+  "address of TaskB"; R7 frame A 0xA000_0004…0xA000_000B, 0xA000_0000…0xA000_0003, 0xA000_000C,
+  task_exit_trap|1, task_a|1, 0x0100_0000; R8a frame B words 0–12 tag 0xB…, LR same, PC task_b|1,
+  RETPSR same; R8b after 5 s: g_cur_tcb 0, g_cnt_a 0, g_cnt_b 0, COM3 "Hello", LED blinks.
+Lock flags (no answers): R3 vs R2 / own arithmetic (decimal 28 added to a hex address); R6 name
+  pointers symbolic → value or range. Board procedure: build + size; nm; bp line 309; x/1xw 0x38,
+  SHPR3, x/4xw &g_tcb_a, x/s names, both 16-word frames, g_cur_tcb; Remove All, continue 5 s,
+  suspend: g_cur_tcb, g_cnt_a/b, pc. Bench Map v214.
+### 5.1 tool path — session 24, 2026-11-17 14:21
+nm call failed (PowerShell, not on PATH, no grep): the tutor's command ignored the logged 3.4 rule
+  ($tb/$nm/$sz/$od from Debug\). Corrected: $tb found by Get-ChildItem under C:\nxp; & $sz; & $nm -n
+  | Select-String (+ __bss_start__ for R3). Nothing measured yet; lock unchanged.
+### 5.1 tool path found — session 24, 2026-11-17 14:23
+$tb = C:\nxp\MCUXpressoIDE_25.6.136\ide\plugins\com.nxp.mcuxpresso.tools.win32_25.6.0.202501151204\tools\bin
+  $nm / $sz / $od = "$tb\arm-none-eabi-{nm,size,objdump}.exe"; run with & from Debug\.
+### 5.1 build — session 24, 2026-11-17 14:23 (size + nm; board dump pending)
+size text 1547 data 4 bss 64 (4.3: 1327/4/36 → +220 / 0 / +28). nm: task_a 0x280, task_b 0x294,
+  task_frame_init 0x2A8, main 0x34C, PendSV_Handler 0x562, task_exit_trap 0x5C4 (after the .S code,
+  out of source order — to explain), __data_load__ 0x60C; __bss_start__ 0x2000_8004, g_tcb_a 0x8020,
+  g_tcb_b 0x8028, g_cur_tcb 0x8030, g_cnt_a 0x8034, g_cnt_b 0x8038, __bss_end__ 0x2000_8044.
+Interim grades: R2 data ✅, bss ✅, text ❌ (1459 vs 1547; direction right, −88 B undercount);
+  R3 0x2000_8044 ✅ value, reason ½ (0x8028 + 0x1C right; ".bss start 0x2000_8020" = g_tcb_a,
+  real start 0x2000_8004). Still owed: build Console (R1), bp 309 dumps (R4–R7, R8a), 5 s run (R8b).
+### 5.1 build Console — session 24, 2026-11-17 14:21
+Build 0 errors / 0 warnings (9 s); FLASH 1552 B (1547 + 4 + 1 pad, as 4.3), RAMB 68 B (4 + 64).
+R1 ✅ (value + reason). task_exit_trap 0x5C4 after .S code: likely -ffunction-sections +
+  --sort-section=alignment (as uart4_puts 0x4D4 in 4.3) — inference; check $od -h on the .o (Algn).
+### 5.1 measured + graded — session 24, 2026-11-17 14:43 (R8b variables pending)
+bp line 309 (0x424): slot 14 0x0000_0563 (PendSV_Handler 0x562|1); SHPR3 0x00E0_0000 (PRI_14 0xE0,
+  PRI_15 written later at line 322); g_tcb_a {0x2000_8FC0, 0x5CC "TaskA"}, g_tcb_b {0x2000_9FC0,
+  0x5D4 "TaskB"}; frame A 0xA000_0004…000B, 0xA000_0000…0003, 0xA000_000C, LR 0x5C5, RA 0x281,
+  RETPSR 0x0100_0000; frame B same with 0xB, LR 0x5C5, RA 0x295 → C function addresses carry bit 0
+  (no |1 in code) — measured. Free run: COM3 "Hello" + "IRQ 39 taken"; LED 5 blinks / 5 s.
+Suspend → "Suspend operation has been timeout" (5th free-run stop after a console continue): the
+  tutor's procedure broke the logged rule "end every run halted at a breakpoint".
+$od -h .o: .text.uart4_puts 2**1, .text.task_exit_trap 2**1, .text.task_a 2**2 → --sort-section=
+  alignment puts 2-byte-aligned sections last (explains task_exit_trap 0x5C4, uart4_puts in 4.3).
+  Why 2**2 for task_a: literal pool (inference).
+Grades: R1 ✅; R2 ½ (data ✅ bss ✅ text ❌ 1459 vs 1547); R3 ✅ value, reason ½; R4 ❌ (0x371 vs
+  0x563; |1 rule right); R5 ❌ (0x80E0_0000 vs 0x00E0_0000: PRI_15 at line 322 after the bp); R6 ✅ sp
+  (names range ungraded; 0x5CC/0x5D4 after task_exit_trap, before __data_load__ 0x60C); R7 ✅; R8a ✅;
+  R8b LED ✅, COM3 ½ (missed "IRQ 39 taken"), variables pending. Tally 5/8 so far.
+Weak point: an address / line order not checked when one look settles it (R4, R5).
+Re-run for R8b: recovery (OK → Remove All Terminated → leftover process → replug if needed); bp line
+  138 (SysTick toggle) + ignore 2 9 → halt at 5 s; read g_cur_tcb, g_cnt_a/b, pc, ICSR; Terminate
+  from the halt. Bench Map v216.
+### 5.1 done — session 24, 2026-11-17 14:50
+R8b re-run (bp line 138 SysTick toggle, ignore 2 9 → 10th hit at 5 s, pc 0x132): g_cur_tcb 0x0,
+  g_cnt_a 0, g_cnt_b 0 ✅; ICSR 0x0000_080F = VECTACTIVE 15 (SysTick), RETTOBASE 1, VECTPENDING 0,
+  PENDSVSET 0 → PendSV never pended. R8b ½ (variables + LED ✅, COM3 missed "IRQ 39 taken").
+Final 5.1 tally 5½ / 8 (R1 ✅, R2 ½, R3 ½, R4 ❌, R5 ❌, R6 ✅, R7 ✅, R8a ✅, R8b ½).
+New method: stop a free run with break <periodic line> + ignore <n> <count> (halted at a bp, no
+  Suspend) — worked 1/1. 5.1 DONE. Next: 5.2 first task start (pend PendSV from main). Bench Map v217.
