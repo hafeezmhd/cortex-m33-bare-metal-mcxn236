@@ -6,7 +6,8 @@
  * 3.1c: UsageFault vector override to UsageFault_Handler
  * 3.4: a real BusFault, and a handler that checks BFARVALID before using BFAR
  * 3.5: MemManage via the MPU
- * 4.3: SVCall vector -> SVC_Handler*/
+ * 4.3: SVCall vector -> SVC_Handler
+ * 5.1: PendSV vector -> PendSV_Handler (scheduler core, defined below)*/
 
     .syntax unified
     .cpu    cortex-m33
@@ -31,7 +32,7 @@ __isr_vector:
     .word   SVC_Handler    	   /* 0x2C 11  SVCall                            */
     .word   Default_Handler    /* 0x30 12  DebugMonitor                      */
     .word   0                  /* 0x34 13  reserved | ROM: exec addr 0=XIP   */
-    .word   Default_Handler    /* 0x38 14  PendSV                            */
+    .word   PendSV_Handler     /* 0x38 14  PendSV                            */
     .word   SysTick_Handler    /* 0x3C 15  SysTick                           */
     /* 16..55 external IRQs: exception = 16 + IRQ (DDI0553 B3.9 RCMTC p.80); word offset = exception number (B3.30 RWPRT p.141); 
     IRQ 39 = LP_FLEXCOMM4 @0xDC (RM Table 15 p.33); past 0x38 no ROM header fields (RM Table 158 p.221) */
@@ -119,6 +120,28 @@ Reset_Handler:
 
 Default_Handler:
     b       .                  /* any unexpected exception parks here */
+
+    .thumb_func
+    .globl  PendSV_Handler
+    .type   PendSV_Handler, %function
+PendSV_Handler:
+    ldr     r1, =g_cur_tcb       /* r1 = &g_cur_tcb */
+    ldr     r2, [r1]             /* r2 = running TCB; 0 on the first entry (.bss) */
+    cbz     r2, 1f               /* first entry: no task context to save */
+    mrs     r0, psp              /* outgoing task's PSP (MRS C2.4.125) */
+    stmdb   r0!, {r4-r11}        /* R4 lowest ... R11 highest (STMDB C2.4.223 p.908-909) */
+    str     r0, [r2]             /* cur->sp, offset 0 (5.0 F5) */
+1:  ldr     r3, =g_tcb_a
+    cmp     r2, r3
+    bne     2f                   /* cur = 0 or B -> next = A */
+    ldr     r3, =g_tcb_b         /* cur = A -> next = B */
+2:  str     r3, [r1]             /* g_cur_tcb = next */
+    ldr     r0, [r3]             /* next->sp */
+    ldmia   r0!, {r4-r11}        /* R4..R11 back; r0 -> hardware frame (LDM C2.4.76 p.659/662) */
+    msr     psp, r0              /* (MSR C2.4.126) */
+    ldr     lr, =0xFFFFFFFD      /* Thread, PSP, standard frame (5.0 D5) */
+    bx      lr                   /* exception return pops the 8-word frame from PSP (RWCGV p.121) */
+    .ltorg                     /* literal pool for the ldr =symbol loads */
 
 /* ---- Weak default for SysTick: link-time override by user ISR ---------- */
     .weak   SysTick_Handler

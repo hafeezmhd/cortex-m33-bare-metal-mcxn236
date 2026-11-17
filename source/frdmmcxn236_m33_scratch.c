@@ -22,6 +22,7 @@
 4.1: Thread mode on the process stack (PSP_S)
 4.2: Thread mode unprivileged (CONTROL.nPRIV) under the 3.5 MPU
 4.3: SVC back to privileged (MPU off, SVC_Handler slot 11)
+5.1: two-task scheduler data (TCBs, initial frames in C), PendSV_Handler in .S slot 14, PendSV level 7
 */
 
 #include <stdint.h>
@@ -62,6 +63,7 @@
 #define SYST_CSR_COUNTFLAG    (1u << 16) /* bit 16, D1.2.241 */
 
 #define SCB_SHPR3_PRI15 	  0xE000ED23u /* DDI0553 D1.2.236 p.1847: SHPR3 = PRI_15 = bits 31:24 */
+#define SCB_SHPR3_PRI14 	  0xE000ED22u /* DDI0553 D1.2.236 p.1847: SHPR3 PRI_14 = bits 23:16 (PendSV) */
 
 #define NVIC_ISER1              0xE000E104u /* DDI0553 D1.2.186 p.1770 */
 #define NVIC_ISPR1              0xE000E204u /* DDI0553 D1.2.187 p.1771-1772 */
@@ -83,10 +85,9 @@
 #define MPU_MAIR0 				0xE000EDC0u // (D1.2.169 p.1745)
 #define SCB_MMFAR 				0xE000ED34u // (D1.2.166 p.1739)
 #define SCB_SHCSR_MEMFAULTENA_Msk (1u << 16) // (D1.2.233 p.1838)
-#define SCB_CFSR_MMFARVALID_Msk (1u << 7)   // (D1.2.167 p.1740, D1.2.11 p.1477)
-#define MPU_TARGET_ADDR 		0x20008040u // un-owned RAMB, 32-byte aligned, IGLXD p.281
-
-#define PSP_S_TOP 0x2000B000u 				/* RAMB .ld line 10, 8-aligned (RJXJM p.79), above .bss end and the MPU region, below MSP minimum 0x2000_FF84 */
+#define SCB_CFSR_MMFARVALID_Msk	(1u << 7)  	// (D1.2.167 p.1740, D1.2.11 p.1477)
+#define TASK_A_STACK_TOP 		0x20009000u /* 5.0: task A stack 0x2000_8C00-0x2000_8FFF, 8-aligned (RJXJM p.79) */
+#define TASK_B_STACK_TOP 		0x2000A000u /* 5.0: task B stack 0x2000_9C00-0x2000_9FFF */
 
 volatile uint32_t g_lpflexcomm4_irq_count;   /* .bss (zeroed by Reset_Handler .S lines 100–107); written by the IRQ 39 handler, read in main from 2.5c/d onward → volatile: main's reads must not be kept in a register. */
 
@@ -101,6 +102,17 @@ volatile uint8_t g_mmfar_valid = 0;
 
 volatile uint32_t g_svc_num;   /* .bss; imm8 of the last svc (C2.4.242 p.947) */
 volatile uint32_t g_svc_count; /* .bss; SVC_Handler entries */
+
+typedef struct {
+	uint32_t * volatile sp;   /* +0: saved PSP, written by PendSV_Handler (5.0 F4/F5) */
+	const char *name;         /* +4: task name, set in main */
+} m33_tcb_t;                 /* 8 B */
+
+m33_tcb_t g_tcb_a;                         /* .bss; task A */
+m33_tcb_t g_tcb_b;                         /* .bss; task B */
+volatile m33_tcb_t * volatile g_cur_tcb;   /* .bss; running task; 0 until the first switch (5.2) */
+volatile uint32_t g_cnt_a;                 /* .bss; task_a loop count */
+volatile uint32_t g_cnt_b;                 /* .bss; task_b loop count */
 
 static void uart4_putc(char c)
 {
@@ -200,6 +212,48 @@ void SVC_Handler(void)
     g_svc_count++;
 }
 
+static void task_exit_trap(void)   /* LR slot of every initial frame (5.0, BX C2.4.29 p.584) */
+{
+	for (;;)
+	{}
+}
+
+static void task_a(void)
+{
+	for (;;)
+	{
+		g_cnt_a++;
+	}
+}
+
+static void task_b(void)
+{
+	for (;;)
+	{
+		g_cnt_b++;
+	}
+}
+
+/* 5.1 C1: build the 16-word initial frame below stack_top (5.0 final design) and set tcb->sp */
+static void task_frame_init(m33_tcb_t *tcb, uint32_t stack_top, void (*entry)(void), uint32_t tag)
+{
+	uint32_t *p = (uint32_t *)stack_top - 16u;   /* 16 words = 64 B below the top (5.0 D6) */
+
+	for (uint32_t n = 4u; n <= 11u; n++)
+	{
+		p[n - 4u] = tag | n;                     /* +0..+28: R4..R11, lowest register lowest (STMDB p.909, LDM p.662) */
+	}
+	p[8]  = tag | 0u;                            /* +32 R0 */
+	p[9]  = tag | 1u;                            /* +36 R1 */
+	p[10] = tag | 2u;                            /* +40 R2 */
+	p[11] = tag | 3u;                            /* +44 R3 */
+	p[12] = tag | 12u;                           /* +48 R12 */
+	p[13] = (uint32_t)task_exit_trap;            /* +52 LR: used by the task's own return, bit 0 must be 1 (C2.4.29 p.584) */
+	p[14] = (uint32_t)entry;                     /* +56 ReturnAddress: bit 0 discarded on exception return (RWCGV p.121) */
+	p[15] = 0x01000000u;                         /* +60 RETPSR: T = 1 (D1.2.221 p.1818) */
+	tcb->sp = p;                                 /* saved PSP = frame base (5.0 D6) */
+}
+
 int main(void)
 {
 	g_zero = g_init;
@@ -243,34 +297,12 @@ int main(void)
 	__asm__ volatile ("dsb":::"memory"); // RSJQJ p.222 / RBMLS p.268
 	__asm__ volatile ("isb":::"memory"); // RNPDJ / RHMNM p.222, RWQQB p.268
 
-	REG32(MPU_RNR) = 0u; 				// region 0
-	REG32(MPU_RBAR) = 0x20008045u;		// BASE 0x2000_8040, SH 00, AP 10 priv RO, XN 1
-	REG32(MPU_RLAR) = 0x20008041u;		// LIMIT 0x2000_805F, AttrIndx 0, EN 1
-	REG32(MPU_MAIR0) = 0x44u;			// Attr0 Normal Non-cacheable
-	REG32(MPU_CTRL) = 0x00000000u;		// 4.3: MPU off (RJVJC p.281); region 0 left programmed
-
-	__asm__ volatile ("dsb":::"memory"); // RSJQJ p.222 / RBMLS p.268
-	__asm__ volatile ("isb":::"memory"); // RNPDJ / RHMNM p.222, RWQQB p.268
-
-	/* 4.1: switch Thread mode to PSP_S */
-	__asm__ volatile ("msr psp, %0" : : "r" (PSP_S_TOP) : "memory");
-	uint32_t ctrl_val;
-	__asm__ volatile ("mrs %0, control" : "=r" (ctrl_val) : : "memory");
-	ctrl_val |= (1u << 1);
-	__asm__ volatile ("msr control, %0" : : "r" (ctrl_val) : "memory");
-	__asm__ volatile ("isb" : : : "memory"); /* RSNGJ p.73 */
-
-	/* 4.2: drop Thread mode to unprivileged (CONTROL.nPRIV, bit 0) */
-	__asm__ volatile ("mrs %0, control" : "=r" (ctrl_val) : : "memory");
-	ctrl_val |= (1u << 0);
-	__asm__ volatile ("msr control, %0" : : "r" (ctrl_val) : "memory");
-	__asm__ volatile ("isb" : : : "memory"); /* RSNGJ p.73 */
-
-	/* 4.3: SVCall back to privileged Thread (RQLHB p.105) */
-	__asm__ volatile ("svc #0" : : : "memory");
-
-	REG32(MPU_TARGET_ADDR) = 0xDEADBEEFu;
-
+	/* 5.1: PendSV at the lowest level (level 7 of 8, 3 bits: log 2.2a) */
+	REG8(SCB_SHPR3_PRI14) = 0xE0u;
+	g_tcb_a.name = "TaskA";
+	g_tcb_b.name = "TaskB";
+	task_frame_init(&g_tcb_a, TASK_A_STACK_TOP, task_a, 0xA0000000u);
+	task_frame_init(&g_tcb_b, TASK_B_STACK_TOP, task_b, 0xB0000000u);
 
 	/* IPPGV order: RVR, then CVR, then CSR.
 	 * (IVHDT: period = RELOAD+1; 48 MHz log 1e.2a) */
