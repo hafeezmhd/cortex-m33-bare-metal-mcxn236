@@ -4124,6 +4124,11 @@ Lock flags (no answers): R3 vs R2 / own arithmetic (decimal 28 added to a hex ad
   pointers symbolic → value or range. Board procedure: build + size; nm; bp line 309; x/1xw 0x38,
   SHPR3, x/4xw &g_tcb_a, x/s names, both 16-word frames, g_cur_tcb; Remove All, continue 5 s,
   suspend: g_cur_tcb, g_cnt_a/b, pc. Bench Map v214.
+### 5.1 locked — session 24, 2026-11-17 14:20 (addendum before the build)
+R3 → 0x2000_8044 (0x2000_8028 + 0x1C); its reason also cites ".bss 36 B / 0x24 from start
+  0x2000_8020" vs own R2 bss 64 and the logged .bss start — recorded, graded with the result.
+R6 names → flash 0x0000_0360–0x0000_0390 (.rodata after the code, before __data_load__).
+All other rows as sent 14:14. Bench Map v215.
 ### 5.1 tool path — session 24, 2026-11-17 14:21
 nm call failed (PowerShell, not on PATH, no grep): the tutor's command ignored the logged 3.4 rule
   ($tb/$nm/$sz/$od from Debug\). Corrected: $tb found by Get-ChildItem under C:\nxp; & $sz; & $nm -n
@@ -4169,3 +4174,7 @@ R8b re-run (bp line 138 SysTick toggle, ignore 2 9 → 10th hit at 5 s, pc 0x132
 Final 5.1 tally 5½ / 8 (R1 ✅, R2 ½, R3 ½, R4 ❌, R5 ❌, R6 ✅, R7 ✅, R8a ✅, R8b ½).
 New method: stop a free run with break <periodic line> + ignore <n> <count> (halted at a bp, no
   Suspend) — worked 1/1. 5.1 DONE. Next: 5.2 first task start (pend PendSV from main). Bench Map v217.
+### 5.1 commits — session 24, 2026-11-17 14:58
+6421b4d "5.1: TCBs + initial frames in C, PendSV_Handler in .S slot 14, PendSV level 7" (2 files,
+  +89 −34); d2e0e46 "log: session 24 5.1 done" (+103); pushed d884cd9..d2e0e46. "^### 5.1" count 11
+  vs 12 issued → heading list asked.
