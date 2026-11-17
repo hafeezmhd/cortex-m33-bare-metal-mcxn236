@@ -23,6 +23,7 @@
 4.2: Thread mode unprivileged (CONTROL.nPRIV) under the 3.5 MPU
 4.3: SVC back to privileged (MPU off, SVC_Handler slot 11)
 5.1: two-task scheduler data (TCBs, initial frames in C), PendSV_Handler in .S slot 14, PendSV level 7
+5.2: first task start (main pends PendSV once via ICSR.PENDSVSET)
 */
 
 #include <stdint.h>
@@ -64,6 +65,8 @@
 
 #define SCB_SHPR3_PRI15 	  0xE000ED23u /* DDI0553 D1.2.236 p.1847: SHPR3 = PRI_15 = bits 31:24 */
 #define SCB_SHPR3_PRI14 	  0xE000ED22u /* DDI0553 D1.2.236 p.1847: SHPR3 PRI_14 = bits 23:16 (PendSV) */
+#define SCB_ICSR 				0xE000ED04u /* DDI0553 D1.2.126 p.1675 */
+#define SCB_ICSR_PENDSVSET 		(1u << 28)  /* DDI0553 D1.2.126 p.1676: W1S, writes of 0 ignored */
 
 #define NVIC_ISER1              0xE000E104u /* DDI0553 D1.2.186 p.1770 */
 #define NVIC_ISPR1              0xE000E204u /* DDI0553 D1.2.187 p.1771-1772 */
@@ -303,6 +306,10 @@ int main(void)
 	g_tcb_b.name = "TaskB";
 	task_frame_init(&g_tcb_a, TASK_A_STACK_TOP, task_a, 0xA0000000u);
 	task_frame_init(&g_tcb_b, TASK_B_STACK_TOP, task_b, 0xB0000000u);
+	/* 5.2: start the first task: pend PendSV once (ICSR.PENDSVSET, D1.2.126 p.1676) */
+	REG32(SCB_ICSR) = SCB_ICSR_PENDSVSET;    // W1S, no RMW needed
+	__asm__ volatile ("dsb" : : : "memory"); // RSJQJ p.222 / RBMLS p.268
+	__asm__ volatile ("isb" : : : "memory"); // RNPDJ / RHMNM p.222, RWQQB p.268
 
 	/* IPPGV order: RVR, then CVR, then CSR.
 	 * (IVHDT: period = RELOAD+1; 48 MHz log 1e.2a) */
