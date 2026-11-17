@@ -4178,3 +4178,64 @@ New method: stop a free run with break <periodic line> + ignore <n> <count> (hal
 6421b4d "5.1: TCBs + initial frames in C, PendSV_Handler in .S slot 14, PendSV level 7" (2 files,
   +89 −34); d2e0e46 "log: session 24 5.1 done" (+103); pushed d884cd9..d2e0e46. "^### 5.1" count 11
   vs 12 issued → heading list asked.
+### Session 24 end (2026-11-17 15:51)
+Session ended at the user's request (length). State: image 5.1 in flash (6421b4d); last run ended
+  halted at bp line 138 (SysTick toggle) — Terminate to confirm at intake. GitHub HEAD 294b684 before
+  this block. Bench Map v218. Next: session-25 intake, then 5.2 (first task start: pend PendSV from
+  main). Continuation prompt: continuation_prompt_session25.txt.
+### Session 24 summary (2026-11-16 12:02 → 2026-11-17 15:51)
+Intake: log ended with session 23 once (265 ### headings, clean); sources = image 4.3; git e254435
+  (4.3 code + session-23 logs done); Breakpoints view empty; Phase 5 step list approved ("go").
+5.0 (paper, lighter format): D0–D6 + Q1–Q3 + F1–F17 checked; corrections carried (FreeRTOS names
+  and generic answers replaced; Q1 frame-mismatch consequence corrected; IRQ 39 = level 0). Final
+  design: stacks A 0x2000_8C00–0x2000_8FFF / B 0x2000_9C00–0x2000_9FFF; m33_tcb_t {sp +0, name +4};
+  16-word frame, fill 0xA000_00nn / 0xB000_00nn, LR task_exit_trap, RA entry, RETPSR 0x0100_0000;
+  EXC_RETURN 0xFFFF_FFFD; PSPs 0x2000_8FC0 / 0x2000_9FC0; no FP in tasks until 5.4.
+Theory detours: ARM vs NXP by address; volatile placement (pointer vs pointee); own startup code
+  (yes, Phase 1; no SystemInit). Field Guide: "Register map: ARM vs NXP, by job" (rev 40 → 42).
+Log repair: partial paste (2 of 7 blocks), then a paste from a rendered markdown preview (### stripped,
+  counts 0) → tutor rebuilt learning_log.md (session-23 prefix byte-identical) → d884cd9.
+5.1: tutor draft + user C1/C2 (corrected: FreeRTOS names/signature, R4–R11 fill tag|0–7, bl
+  vTaskSwitchContext, missing NULL check, LR not loaded); Q1b/Q3 corrected. Edits: 2 Select-String
+  rounds (header lines swapped, C1 body missing, 2 extra blank lines). Predictions R1–R8 + addendum
+  (R3, R6) before the build. Build 0/0, text 1547 data 4 bss 64 (FLASH 1552, RAMB 68). Board: slot 14
+  0x563, SHPR3 0x00E0_0000 at bp 309, frames A/B exactly as designed, C function addresses carry bit 0,
+  names 0x5CC/0x5D4 in flash; 5 s halt: g_cur_tcb 0, counts 0, ICSR 0x080F (PendSV never pended).
+  task_exit_trap 0x5C4 explained: --sort-section=alignment, .text.task_exit_trap 2**1. Score 5½/8.
+Suspend timeout (5th after a console continue) → new method: break <periodic line> + ignore (1/1).
+Commits: fe969db, d884cd9, 6421b4d (5.1 code), d2e0e46, 294b684.
+Tutor corrections: nm/grep command ignored the logged $tb rule (PowerShell); free-run + Suspend
+  procedure ignored the logged "end every run halted at a bp" rule; "10 or more" heading threshold
+  too loose (1 block missing, then restored); R5 hint/grade said PRI_15 is written at "line 322"
+  — it is line 315 (322 = the isb after the IRQ 39 pend). Bench Map v218.
+### Session 25 intake (2026-11-17 16:10; block file checked 16:14)
+learning_log.md 4,180 lines (LF, NO newline at EOF — last line "vs 12 issued → heading list
+  asked."), 289 "###" headings, all at column 1, no duplicates; "^### 5.1" 13, "^### 5.0" 7,
+  "^### Session 24 intake" 1. Session 24 end + Session 24 summary NOT in the log (0 each; log ends
+  with "### 5.1 commits" 14:58 = the 294b684 state). session24_end_blocks.md attached at 16:14: 2
+  blocks, both missing from the log, nothing else missing → appended as issued (a tutor
+  reconstruction sent at 16:10 is withdrawn). Sources match the prompt line map (image 5.1): .c 332
+  lines CRLF tabs md5 7ef9a52d4f557bafdac750264ff04b3c; .S 170 lines CRLF md5
+  91834c1056b2a0a9431820255b92ab73; .ld 45 newlines CRLF, no EOF newline, md5
+  83f60f7ff0b472dccfacf54545d00f1c (md5s recorded for the first time). Bench Map v218 → v219
+  (Phase 5 roadmap block, 5.1 score row and trail were still at the session-23 state — added).
+  Asked: git log --oneline -3, git status --short, Breakpoints view empty?, line-138 session
+  Terminated?
+### 5.2 issued — session 25, 2026-11-17 16:50 (lighter format)
+Intake answers: git HEAD = origin/main = 294b684, status clean (session-24 end blocks + session-25
+  intake not yet appended → owed with this block, commit "log: session 24 end + summary, session 25
+  intake + 5.2 issued"). Line-138 debug session Terminated (confirmed); Breakpoints view EMPTY.
+5.2 = first task start: main pends PendSV once. Tutor draft: .c header line 26 (5.2); SCB_ICSR
+  0xE000ED04u + SCB_ICSR_PENDSVSET (1u << 28) after SCB_SHPR3_PRI14 (new 68–69); pend block =
+  comment + REG32 write + dsb + isb (4 lines), position = user's C1. Everything after line 66 +3.
+User composes: C1 where in main the pend block goes and what happens to main's code after it;
+  Q1 LR at PendSV_Handler entry (logged value + 8-bit back-decode); Q2 frame main leaves on MSP
+  (words, msp_s at entry) and whether anything pops it; Q3 control_s / xPSR / psp_s at task_a's
+  first instruction; Q4 FPCCR.LSPACT and FPCAR after the start; Q5 where SysTick and IRQ 39 return
+  once task_a runs (stack, EXC_RETURN).
+Sources opened (pdftotext): FPCCR D1.2.100 p.1633 (ASPEN 31: FP instruction sets CONTROL.FPCA,
+  resets 1), p.1634 (LSPEN 30, resets 1), LSPACT bit 0 p.1638 (resets 0); FPCAR D1.2.99 p.1632
+  (0xE000EF38, ADDRESS 31:3 = unpopulated FP space in an exception frame, Warm reset UNKNOWN,
+  banked); RQRWD p.119 (return without tail-chain: CONTROL.FPCA ← NOT EXC_RETURN.FType); SHCSR
+  PENDSVACT bit 10 p.1840 (banked); ICSR PENDSVSET bit 28 p.1676 (W1S, writes of zero ignored,
+  read = pending, resets 0). Bench Map v220.
