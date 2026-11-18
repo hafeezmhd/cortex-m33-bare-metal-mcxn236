@@ -4340,3 +4340,144 @@ Weak points: flagged contradictions not fixed by an addendum (8 of 8 flagged row
   FType bit read backwards in reasons although the decode table was accepted; FPCAR = slot, not
   frame base; lazy state after a FType-1 return assumed cleared without a rule. Strengths: R3/R4a
   values, R6a/c/d, R8 counting rule (bp before the line → 99). 5.2 DONE. Next: 5.3. Bench Map v222.
+### 5.3 issued — session 25, 2026-11-17 19:16 (lighter format; 5.3a/5.3b split proposed)
+Commits c00f67a (5.2 code, +7) and c82240a (5.2 log, +101) pushed 386e8c0..c82240a; "^### 5.2" 8,
+  total 300. Theory detour (19:15): "pend" = set an exception pending (ICTFJ p.93 states inactive /
+  pending / active / active-and-pending; pended by hardware or a set-pending bit; 5.2 measured
+  pending → active at entry (ICSR 0x080E, PENDSVACT 1) → inactive after return (SHCSR 0x0007_0000)).
+5.3a: SysTick pends PendSV every SLICE_TICKS ticks; A toggles LED, B prints; measure first A→B
+  switch (tail-chained entry, saved PSP A, CYCCNT PendSV entry → task_b) and B→A. 5.3b: GDB check
+  of the 5.1 Q3 claim (ICSR.PENDSTSET while halted in PendSV). Tutor draft: header line 27,
+  SLICE_TICKS macro line 71, g_tick global line 121. User composes C1 SysTick_Handler, C2
+  task_a/task_b, C3 start path; Q1 SysTick frame from task_a (stack, words, EXC_RETURN, RPBVF), Q2
+  tail-chain into PendSV (RFKXX), Q3 SysTick pend while main runs, Q4 SysTick preempting PendSV.
+Sources opened (pdftotext): RFKXX p.127 (tail-chain: no unstack, take pending exception, no
+  background instruction); ICSR PENDSTSET bit 26 p.1677 (W1S SysTick pend). Bench Map v223.
+### 5.3 theory detours — session 25, 2026-11-18 10:05–10:08
+Why SysTick pends PendSV instead of switching itself: (1) jobs split — SysTick only counts the
+  slice, PendSV is the one switch path (any future switch request = write PENDSVSET); (2) PendSV
+  level 7 can preempt only Thread → runs only after every other handler has finished, so the
+  context it interrupts is a task (state on PSP), never a half-finished handler; an exception can't
+  be called, only pended. Objective of Phase 5: build the layer under FreeRTOS (xTaskCreate /
+  portYIELD) from the manual, measured — TCB + hand-built frame (5.0–5.1), first start by
+  exception return (5.2), time slicing + switch cost (5.3), FPU lazy state (5.4), Field Guide +
+  GitHub as portfolio; Phases 1–4 (boot, exceptions, faults, privilege/PSP/MPU/SVC) are its parts.
+### 5.3 composition check — session 25, 2026-11-18 10:16 (one round; corrections carried)
+C1 ACCEPTED: g_tick++ / compare / reset / REG32(SCB_ICSR) = SCB_ICSR_PENDSVSET; SLICE_TICKS 100
+  (100 ms); old 500-tick toggle removed; no barriers (reason ½: RDQHW p.153 exception return =
+  context synchronization event; RQXWD needs a completed write → tail-chain vs later take = 5.3a
+  prediction). Tutor fix: g_tick comment → "ticks into the current slice, reset every SLICE_TICKS".
+C2: text 500,000 vs code 500u → 500 graded; 500 × ~15 cycles (1d.4) ≈ 0.16 ms per toggle / per
+  print — not visible; divisors re-asked (one per task). Duplicate task_b paste ignored.
+C3 ❌: pend kept after 308 + "following lines now run" contradicts 5.2 (PendSV returns into task_a
+  via .S 142, main's MSP frame never popped → SYST_CSR 324 never runs, no switching). Re-asked.
+Q1: PSP ✅; 26 words / FPCA 1 ❌ (5.2 control_s 0x2 in task_a → FType 1, 8 words); 0xFFFF_FFE9 ❌
+  (SPSEL 0 vs own PSP; DCRS 0 vs bit 5 = 1); alignment ❌ (5.2 psp_s 0x2000_8FFC = 4 mod 8 → RPBVF
+  applies). Q2: tail-chain ✅ (RFKXX p.127), frame ✅, LR 0xE9 ❌ (follows Q1; RWYWW step 4 p.104;
+  no explicit tail-chain-LR rule found → measure). Q3 ½ (fallback right; redo for new C3). Q4:
+  PSP ❌ (preempting a handler → MSP, Mode 0; 5.2 control_s 0 in PendSV → FType); risk analysis ✅;
+  added for 5.3b: PENDSVSET while PendSV active → active-and-pending (ICTFJ p.93).
+Owed: C2 divisors, C3 decision, Q1 redo, Q3 redo, Q4 stack + EXC_RETURN. Sources opened: RDQHW +
+  RQXWD (B3.35, p.153), RWYWW step 4 (p.104).
+### 5.3 composition round 2 — session 25, 2026-11-18 10:26
+C2 ACCEPTED: divisors 500000u (A and B); reason ✅ (4.8 M cycles / ~15 per iteration ≈ 320 k per
+  slice); note: ~150 ms = A's run time, wall time longer and uneven (A every other slice); % adds
+  UDIV/MLS → loop cost from the 5.3 objdump. C3: "after SYST_CSR" vs "before for(;;)" = two places
+  (324 vs 335) → one line asked. Q1: 8 words / FType 1 ✅; 0xFFFF_FFE1 ❌ (own bit list = 0xFD); bit
+  map ❌ 3rd time (bit 0 S / bit 1 DCRS / 7:5 reserved → ES 0, RES0 1, SPSEL 2, Mode 3, FType 4,
+  DCRS 5, S 6, RES1 7, D1.2.96 p.1628–1629); RPBVF ✅ (0x2000_8FFC mod 8 = 4, SPREALIGN RETPSR 9).
+  Q3 ½ (SYST_CSR → pend window vs first SysTick pend at tick 100 not addressed). Q4 MSP ✅,
+  0xFFFF_FFF1 ✅ value, decode ❌ (same map).
+### 5.3 composition accepted — session 25, 2026-11-18 11:02 (round 3; corrections carried)
+C3 ACCEPTED: pend block moved after the if/else (old 335) → Hello, SysTick, IRQ 39 enable + pend +
+  print run before the start; main's for(;;) never runs. Q1 0xFFFF_FFFD ✅, field names ✅
+  (D1.2.96 map), meanings ½ (ES 1 = Secure not "Thumb"; DCRS bit 5 = 1 not 0; S 1 = Secure frame).
+  Q3 ½ (conclusion ✅; window SYST_CSR → pend ≈ 1.2 ms (IRQ 39 handler + 14-char puts at 115200),
+  not µs; 100 ms = 4.8 M cycles; first tick 1 ms, first pend tick 100).
+Edit list (bottom-up): pend block 309–312 → after 335 (comment "5.3: start the first task last");
+  task_b / task_a bodies with % 500000u; SysTick_Handler = C1; g_tick global after g_cnt_b;
+  SLICE_TICKS 100u after PENDSVSET; header line 27. Scratch copy: 348 lines, syntax-checked.
+  Target Select-String lines 27 28 71 121 140–144 227 232 233 238 243 244 269 316 317 321 329 339
+  342 346; .S MD5 91834C10… unchanged.
+### 5.3 edit check — session 25, 2026-11-18 11:16 (Select-String: pend block not moved)
+.c 348 lines ✅; header 27/28, SLICE_TICKS 71, g_tick 121, SysTick 140–144, task_a 227/232/233,
+  task_b 238/243/244, main 269, frames 316/317 ✅; pend write at 319 (target 342) → SYST_RVR 325,
+  SYST_CSR 333, "not taken" 343 (+4); no 342 match → step 1 (move) not done (count unchanged by a
+  move). .S MD5 91834C10… ✅. Asked: cut 318–321, paste after the if/else } (340), new comment,
+  re-run + bracketed dump 316–323 / 338–347.
+### 5.3 edits verified — session 25, 2026-11-18 11:42
+Pend block moved: cut 318–321, pasted after the if/else } (340) → 341 comment (5.3 text), 342
+  write, 343 dsb, 344 isb, 345 blank, 346 for(;;). Select-String: 348 lines; 27 28 71 121 140–144
+  227 232 233 238 243 244 269 316 317 321 329 339 342 346 → all match; .S MD5 91834C10… unchanged.
+Predictions R1–R8 asked before the build: R1 build + size; R2 nm PendSV_Handler / g_tick / task_b
+  / __data_load__; H1 = PendSV entry if g_cur_tcb == &g_tcb_a (first A→B): R3 lr / psp_s / msp_s /
+  xPSR / g_tick, R4 SHCSR / ICSR / RETPSR (SPREALIGN); H2 = task_b first instruction: R5 psp_s /
+  g_tcb_a.sp / g_cur_tcb / CYCCNT Δ H1→H2; H3 = PendSV entry if cur == &g_tcb_b: R6 lr / psp_s /
+  g_tick; H4 = first line-233 hit: R7 g_cnt_a / g_cur_tcb; R8 COM3 first two lines, LED blinking,
+  "Task B active" repeating (RESET check, 10 s).
+### 5.3 predictions — session 25, 2026-11-18 11:47 (R1–R8 received; locked with flags)
+R1 0/0, text 1612 / data 4 / bss 68; R2 PendSV_Handler 0x576, g_tick 0x2000_803C, task_b 0x2C0,
+  __data_load__ 0x620; R3 (H1) lr 0xFFFF_FFE1, psp_s 0x2000_8FFC, msp_s 0x2000_FF88, xPSR
+  0x0100_0000, g_tick 100; R4 SHCSR 0x0007_0400, ICSR 0x080F, RETPSR 0x0100_0200; R5 (H2) psp_s
+  0x2000_9FC0, g_tcb_a.sp 0x2000_8FDC, g_cur_tcb "address of g_tcb_b", Δ 24 cycles; R6 (H3) lr
+  0xFFFF_FFE1, psp_s symbolic, g_tick 100; R7 (H4) g_cnt_a 500000, g_cur_tcb symbolic; R8 Hello then
+  Task B active, LED blinking yes, repeats yes.
+Lock flags (no answers): R1b no count; R2a/d "unchanged" vs own R1 (C code before PendSV and the
+  load image); R2c no reason; R3a/R6a value 0xE1 vs own decode (= 0xDD) vs accepted Q1 0xFD; R3b
+  (pre-stacking sp) vs R4c (realign + frame; RFKXX no unstack); R3d Handler IPSR (5.2 0x0900_000E);
+  R3e/R6c 100 vs C1 line 143 reset before 144; R4a reason "SysTick active" vs value (D1.2.233);
+  R4b 0x080F = VECTACTIVE 15 vs reason PendSV (5.2 0x080E); R5a pre-ldmia value (5.2 0x8FC0 vs
+  0x9000); R5b stmdb base vs R3b/R4c; R5c/R6b/R7b symbolic; R5d instructions ≠ cycles, no
+  exception return / restart; R8a vs accepted C3 (IRQ 39 print before 341). Addendum allowed until
+  Build. Build + size/nm/objdump paste asked before the board.
+### 5.3 build — session 25, 2026-11-18 12:07 (locked as sent; build rows graded)
+Build 0/0 (6 s); FLASH 1676 B (1671 + 4 + 1 pad), RAMB 68 B; size text 1671 data 4 bss 64 (5.2
+  1567/4/64 → +104 / 0 / 0). nm: SysTick_Handler 0x114, task_a 0x280, task_b 0x2C0, main 0x3A4,
+  PendSV_Handler 0x5CE, __data_load__ 0x688, g_tcb_a 0x2000_8020, g_tcb_b 0x8028, g_cur_tcb 0x8030,
+  g_cnt_a 0x8034, g_cnt_b 0x8038, g_tick 0x803C. task_a/task_b 64 B each (5.2 20 B): % 500000 →
+  umull by 0x431B_DE83 + lsrs #17 + mul (0x7A120) + subs; toggle 0x2A6, B bl uart4_puts 0x2E8.
+  +88 task code (main, PendSV +0x58; main same size) + 16 B "Task B active\r\n" (__data_load__
+  +0x68). bss unchanged: g_tick +4, SysTick static tick −4. SysTick: cmp #99 / bls; g_tick = 0
+  (0x12E) before the PENDSVSET store (0x136).
+Grades: R1 ½ (0/0 ✅; text 1612 ❌; data ✅; bss 68 ❌ — removed static tick missed); R2 ⅜
+  (PendSV 0x576 ❌, g_tick ✅, task_b ½ value without reason, __data_load__ 0x620 ❌). Board: bp1
+  *0x5CE if cur == 0x2000_8020 (H1), bp2 *0x2C0 (H2), then condition 1 cur == 0x2000_8028 (H3),
+  then line 233 = 0x2A6 (H4).
+### 5.3a measured + graded — session 25, 2026-11-18 12:30 (5.3a DONE)
+Tutor error (12:15): bp numbers start at 2 (temporary bp 1 at main) → "delete 2" deleted the PendSV
+  bp, "condition 1" → "No breakpoint number 1"; recovered at H2 with delete 3 + new bp 4 *0x5CE if
+  cur == 0x2000_8028; H3 then delete 4, bp 5 line 233 = 0x2A6. No data lost. Rule: use the numbers
+  info breakpoints prints (5.2 list had it right).
+Result (raw): H1 bp 0x5CE (cur A): pc 0x5CE, lr 0xFFFF_FFFD, msp_s 0x2000_FF88, psp_s 0x2000_8FD8,
+  control_s 0, xPSR 0x6100_000E, g_tick 0, SHCSR 0x0007_0400, ICSR 0x0000_080E, CYCCNT 0x0049_A20B,
+  g_cnt_a 0x19217; frame 0x8FD8: 0xA000_0000 0x7A120 0x19217 0x2000_8034 0xA000_000C 0x631 0x286
+  0x2100_0200, then 0x281 (pad) 0xA000_0007. H2 bp 0x2C0: pc 0x2C0, psp_s 0x2000_A000, control_s
+  0x2, g_tcb_a 0x2000_8FB8 / name 0x648, g_cur_tcb 0x2000_8028, CYCCNT 0x0049_A251. H3 bp 0x5CE (cur
+  B): pc 0x5CE, lr 0xFFFF_FFFD, msp_s 0x2000_FF88, psp_s 0x2000_9FD8, g_tick 0, g_cnt_b 0x19705,
+  CYCCNT 0x0092_E00B; frame 0x9FD8: 0xB000_0000 0x7A120 0x19705 0x2000_8038 0xB000_000C 0x631 0x2C6
+  0x2100_0000, then 0xB000_0007 0x631. H4 bp 0x2A6: pc 0x2A6, g_cnt_a 0x7A120, g_cur_tcb
+  0x2000_8020, psp_s 0x2000_8FFC, g_tcb_b 0x2000_9FB8 / name 0x650. After RESET: COM3 "Hello",
+  "IRQ 39 taken", then "Task B active" repeating (21 lines pasted; watch time not recorded); LED 5
+  blinks in 10 s. Terminate-while-halted at H4 not stated.
+Findings: (1) tail-chain (RFKXX p.127): at H1 SysTick no longer active (SHCSR PENDSVACT only,
+  ICSR VECTACTIVE 14, RETTOBASE 1), PendSV finds SysTick's frame; LR 0xFFFF_FFFD = background
+  EXC_RETURN unchanged by the chain; no-barrier C1 worked (pend seen at SysTick's bx lr).
+  (2) RPBVF realign: A loop sp 0x8FFC (4 mod 8) → 0x8FF8 → frame 0x8FD8, SPREALIGN 1 (RETPSR bit
+  9), pad = stale 5.1 RA 0x281; B push {r7,lr} → 0x9FF8 aligned → frame 0x9FD8, SPREALIGN 0.
+  (3) saved PSP = frame − 0x20 (stmdb R4–R11): A 0x8FB8, B 0x9FB8 (5.0 F5); A resumes at 0x8FFC
+  (pad popped). (4) switch cost: CYCCNT Δ H1→H2 = 0x46 = 70 cycles (save + restore + 8-word
+  unstack + bp restart ≈ 6) → ≈ 64. (5) slice: Δ H2→H3 = 0x493DBA = 4,800,954 = 100 × 48,000 +
+  954 (halt/jitter). (6) loop cost ≈ 4.8 M / 104,197 ≈ 46 cycles per iteration incl. SysTick
+  entries → 500,000 iterations ≈ 4.86 A-slices ≈ 0.97 s wall per toggle → 5 blinks / 10 s ✅.
+  (7) xPSR Z/C at PendSV entry UNKNOWN by rule (RMRDS p.114: Secure target, v8.0 → APSR UNKNOWN);
+  task flags (C = 1) are in the stacked RETPSR. (8) 5.1 fill tags still in R0/R12/r7 (task never
+  wrote them); LR slot = task_exit_trap 0x631.
+Grades: R1 ½; R2 ⅜; R3 ⅕ (c ✅; a 0xE1 vs 0xFD, b 0x8FFC vs 0x8FD8, d 0x0100_0000 vs 0x6100_000E,
+  e 100 vs 0 ❌); R4 ⅓ (a value ✅ reason wrong ½, b 0x080F ❌, c ½ — T + SPREALIGN right, C flag
+  missed); R5 0 (a 0x9FC0 vs 0xA000, b 0x8FDC vs 0x8FB8, d 24 vs 70; c ungraded); R6 0 (a 0xE1, c
+  100; b ungraded); R7 1 (a 500,000 ✅; b ungraded); R8 ⅔ (a ❌ second line "IRQ 39 taken", flagged;
+  b ✅; c ✅). Total ≈ 3/8 (3.08).
+Weak points: 9 of 12 wrong graded sub-items had a lock flag naming the error and no addendum came
+  (3rd step in a row: 4.3, 5.2, 5.3a); 0xE1 decode reused against the accepted Q1; pre-stacking /
+  pre-ldmia values again (5.2 R6b repeated as R3b/R5a); symbolic values (4 rows). Strengths: R7
+  counting, R3c msp reasoning, R4c realign mechanism, R8 b/c. 5.3a DONE. Next: 5.3b. Bench Map v224.
