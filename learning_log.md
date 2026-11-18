@@ -4481,3 +4481,92 @@ Weak points: 9 of 12 wrong graded sub-items had a lock flag naming the error and
   (3rd step in a row: 4.3, 5.2, 5.3a); 0xE1 decode reused against the accepted Q1; pre-stacking /
   pre-ldmia values again (5.2 R6b repeated as R3b/R5a); symbolic values (4 rows). Strengths: R7
   counting, R3c msp reasoning, R4c realign mechanism, R8 b/c. 5.3a DONE. Next: 5.3b. Bench Map v224.
+### 5.3a commits + 5.3b issued — session 25, 2026-11-18 12:40
+Terminate before RESET confirmed (5.3a ended halted at H4 bp 0x2A6 → Terminate → RESET check).
+  Commits 2a202a9 (5.3a code, +17/−8 = header 1 + macro 1 + global 1 + task bodies 3+3 + SysTick
+  4 changed + moved block 4/4) and ff03ce0 (log, +141) pushed c82240a..ff03ce0; "^### 5.3" 10 (tutor
+  expected 9 — the theory-detour heading also starts with 5.3), total 310. Stray bash line
+  "source/frdmmcxn236_m33_scratch.c" ran the .c as a script: "/*" globbed → /LICENSE.txt executed
+  as a script, both stopped at a syntax error; file unchanged (commit stat matches). Rule: never
+  type a bare path in bash; use cat / less / git diff.
+5.3b (GDB only, image 5.3): force SysTick to preempt PendSV at 0x5E6 (str r3,[r1]: A's R4–R11 +
+  g_tcb_a.sp saved, g_cur_tcb + PSP not yet switched), bp deleted before continue (2.5c-1b) so
+  SysTick is taken before the str. E1 = A→B, plain nesting; E2 = B→A with g_tick = 99 → nested
+  SysTick pends PendSV while PendSV is active. User composes: C1 GDB ICSR write (PENDSTSET bit 26,
+  p.1677) + why no RMW; C2 g_tick = 99 write + why 99; Q1 nested stack / EXC_RETURN (decode) /
+  RA; Q2 return target + which PendSV state SysTick could touch (objdump 0x114–0x140); Q3 E2 states
+  (ICTFJ p.93), bx lr (RFKXX p.127), second entry: current TCB, saved PSP, landing.
+### 5.3b composition checked — session 25, 2026-11-18 17:31 (one round; corrections carried)
+C1 ✅ set {unsigned int}0xE000ED04 = (1u << 26) (W1S PENDSTSET bit 26, zeros ignored) — use
+  0x04000000 in GDB. C2 ✅ set {unsigned int}0x2000803C = 99 (++ → 100 → cmp #99 / bls falls
+  through). Q1 MSP ✅, 0xFFFF_FFF1 ✅, meanings ½ (4th: ES 1 = Secure not "Thumb"; DCRS bit 5 = 1; S 1
+  = Secure frame); RA 0x5E8 ❌ (bp deleted → taken before 0x5E6, 2.5c-1b; 0x5E8 = bp-kept
+  step-over case). Q2 destination ❌ (back to the interrupted instruction; str runs after return);
+  registers ½ (r7 missed: SysTick push {r7} 0x114 / ldr.w r7 0x13C, restored on MSP; r1–r3 hardware
+  stacked; claim holds). Q3 active-and-pending ✅, tail-chain ✅; second entry ½ (landing B ✅; E2 is
+  B→A, first PendSV sets cur = A, str executes before the 1st bx lr → cur = A on the 2nd entry, A has
+  run 0 instructions; PSP symbolic). Predictions R1–R8 asked (G1 0x5E6 cur A, G2 SysTick 0x114, G3
+  0x5F6, G4 0x2C0; G5 0x5E6 cur B + g_tick 99 + pend, G6 0x5F6, G7 2nd entry 0x5CE, G8 0x5F6, G9 0x2C4).
+### 5.3b predictions — session 25, 2026-11-18 17:42 (locked with flags; GDB list held until answered)
+R1 r3 sym, g_tcb_a.sp 0x2000_8FB8, cur sym, psp_s 0x2000_8FB8; R2 lr 0xFFFF_FFF1, msp_s 0x2000_FF20,
+  RA 0x5E8, SHCSR sym, ICSR 0x080F; R3 cur sym, psp_s 0x2000_9FB8, r4 0xB000_0004, SHCSR sym; R4 psp_s
+  0x2000_9FA0, g_tcb_a.sp 0x8FB8; R5 SHCSR/ICSR/cur sym, g_tick 0; R6 lr 0xFFFF_FFE1, psp_s 0x2000_9FD8,
+  SHCSR/ICSR sym; R7 g_tcb_a.sp 0x8FB8, cur sym, psp_s 0x8FB8; R8 cur sym, psp_s 0x9FD8, g_cnt_b yes.
+Flags: 12 symbolic; R1b reason base 0x8FFC vs value; R1d/R3b/R7c PSP only changes at msr 0x5EE after
+  ldmia; R2b arithmetic (FF88 − 0x20 = FF68) + PendSV MSP use; R2c kept vs 17:31 correction; R2e
+  VECTACTIVE 15 vs reason + RETTOBASE; R3d bx lr not yet executed; R4a pop raises sp; R5d str runs
+  before G6; R6 label cur B vs A; R6a 0xE1 vs Q1 0xFD + mvn.w lr,#2; R6b first PendSV loaded A; R7a
+  derive from R6b − 0x20; R7b vs own Q3 landing B; R8b stacked base vs loop sp; R8c no reason.
+  Rule applied: every flag answered before the GDB list.
+### 5.3b addendum = lock — session 25, 2026-11-18 17:53 (all flags answered; GDB list issued)
+R1 r3 0x2000_8028, g_tcb_a.sp 0x2000_8FDC, cur 0x2000_8020, psp_s 0x2000_8FFC; R2 lr 0xFFFF_FFF1,
+  msp_s 0x2000_FF68, RA 0x5E6, SHCSR 0x0007_0400, ICSR 0x080F (RETTOBASE 0); R3 cur 0x2000_8028,
+  psp_s 0x2000_8FFC, r4 0xB000_0004, SHCSR 0x0003_0400; R4 psp_s 0x2000_9FE0, g_tcb_a.sp 0x8FDC; R5
+  SHCSR 0x0003_0400, ICSR 0x1008_0F00, g_tick 0, cur 0x2000_8028; R6 lr 0xFFFF_FFFD, psp_s 0x8FDC,
+  SHCSR 0x0003_0400, ICSR 0x1008_0F00; R7 g_tcb_a.sp 0x8FDC, cur 0x2000_8020, psp_s 0x8FDC; R8 cur
+  0x2000_8028, psp_s 0x2000_9FD8, g_cnt_b changed yes. No second flag round. GDB list G1–G9 issued
+  (bp numbers from GDB's own "Breakpoint N" lines; temporary bp 1 at main).
+### 5.3b measured + graded — session 25, 2026-11-18 18:35 (5.3b DONE; 5.1 Q3 claim CONFIRMED)
+Result (raw): G1 bp 2 0x5E6 (cur A): r0 0x2000_8FB8, r1 0x2000_8030, r2 0x2000_8020, r3 0x2000_8028,
+  psp_s 0x2000_8FD8, msp_s 0x2000_FF88; g_tcb_a 0x2000_8FB8 / 0x648; cur 0x2000_8020; SHCSR
+  0x0007_0400; ICSR 0x080E → after write 0x0480_F80E. G2 bp 3 0x114: lr 0xFFFF_FFF1, msp_s
+  0x2000_FF68, psp_s 0x8FD8, xPSR 0x6100_000F, SHCSR 0x0007_0C00, ICSR 0x0000_000F; MSP frame
+  0xFF68: 0x2000_8FB8 0x2000_8030 0x2000_8020 0x2000_8028 0xA000_000C 0xFFFF_FFFD 0x5E6 0x6100_000E.
+  G3 bp 4 0x5F6: r0 0x2000_9FE0, r4 0xB000_0004, r11 0xB000_000B, lr 0xFFFF_FFFD, psp_s 0x9FE0, msp_s
+  0xFF88, cur 0x2000_8028, SHCSR 0x0007_0400, ICSR 0x080E. G4 bp 5 0x2C0: psp_s 0x2000_A000, msp_s
+  0xFF88, g_tcb_a 0x8FB8. G5 bp 6 0x5E6 (cur B): r3 0x2000_8020, psp_s 0x2000_9FD8, g_tick 0, g_cnt_b
+  0x192F2; ICSR after write 0x0480_F80E. G6 bp 7 0x5F6: psp_s 0x2000_8FD8, SHCSR 0x0007_0400, ICSR
+  0x1000_E80E, g_tick 0, cur 0x2000_8020. G7 bp 8 0x5CE: lr 0xFFFF_FFFD, psp_s 0x2000_8FD8, msp_s
+  0xFF88, xPSR 0x2100_000E, SHCSR 0x0007_0400, ICSR 0x080E, cur 0x2000_8020; frame 0x8FD8 = 5.3a H1
+  frame word for word (RA 0x286, RETPSR 0x2100_0200, pad 0x281, r7 0xA000_0007). G8 bp 7 0x5F6: r4
+  0xB000_0004, psp_s 0x2000_9FD8, g_tcb_a 0x8FB8 / 0x648, cur 0x2000_8028, SHCSR 0x0007_0400, ICSR
+  0x080E. G9 bp 9 0x2C4: psp_s 0x2000_9FF8, cur 0x2000_8028, g_cnt_b 0x192F2, g_tcb_b 0x2000_9FB8 /
+  0x650. Terminated while halted (stated).
+Findings: (1) E1: SysTick nests on MSP 0xFF88 → 0xFF68 (PendSV uses no MSP), EXC_RETURN 0xFFFF_FFF1,
+  RA 0x5E6 (bp deleted → taken before the str, 2.5c-1b confirmed again); its frame holds PendSV's
+  r0–r3 (0x8FB8, &cur, A, B), lr 0xFFFF_FFFD (PendSV's own EXC_RETURN) and xPSR (IPSR 14). SHCSR
+  0x0007_0C00 = SYSTICKACT 11 + PENDSVACT 10; ICSR 0x000F = VECTACTIVE 15, RETTOBASE 0 (two active).
+  After return: str executed (cur B), switch identical to 5.3a (task_b psp 0x2000_A000, g_tcb_a.sp
+  0x8FB8) → 5.1 Q3 claim CONFIRMED: SysTick touches no switch state (r7 saved by itself). (2) ICSR
+  after the PENDSTSET write while halted: 0x0480_F80E = PENDSTSET 26, ISRPREEMPT 23 (pending will be
+  handled on exit from Debug state, p.1678), VECTPENDING 15 (20:12, p.1679), RETTOBASE, VECTACTIVE 14.
+  (3) E2: nested SysTick (g_tick 99 → 100 → 0) pended PendSV while active → G6 ICSR 0x1000_E80E =
+  PENDSVSET 28 + VECTPENDING 14, ISRPREEMPT 0 (can't preempt itself) = active-and-pending (ICTFJ);
+  bx lr tail-chained into PendSV (RFKXX): lr 0xFFFF_FFFD (from mvn.w lr,#2), PSP = A's loaded frame
+  base 0x8FD8 (no unstack), ICSR PENDSVSET cleared at entry. 2nd PendSV saved A again (0x8FD8 − 0x20
+  = 0x8FB8, unchanged — A ran 0 instructions) and switched to B (psp 0x9FD8 → B loop 0x9FF8). Net:
+  an extra back-to-back switch; A lost its slice, B got two in a row — correct but wasteful.
+  (4) g_cnt_b unchanged G5 → G9 (0x192F2): B resumed at a point where the next 0x2C4 came before
+  any increment (B's RA not dumped — inference). (5) xPSR flags at PendSV entries vary (0x61 /
+  0x21): UNKNOWN by RMRDS p.114.
+Grades: R1 ½ (a ✅, c ✅; b 0x8FDC vs 0x8FB8 — addendum changed the right value; d 0x8FFC vs 0x8FD8);
+  R2 ⅗ (a ✅, b ✅, c ✅; d 0x0007_0400 vs 0x0007_0C00; e 0x080F vs 0x000F — own RETTOBASE 0
+  contradicted the value); R3 ½ (a ✅, c ✅; b 0x8FFC vs 0x9FE0; d 0x0003_0400 vs 0x0007_0400); R4 0
+  (0x9FE0 vs 0xA000; 0x8FDC vs 0x8FB8); R5 ¼ (c ✅; SHCSR, ICSR 0x1008_0F00 vs 0x1000_E80E, cur B vs
+  A); R6 ¼ (a ✅ mvn; b 0x8FDC vs 0x8FD8; SHCSR; ICSR pending vs cleared at entry); R7 0 (0x8FDC /
+  cur A / 0x8FDC vs 0x8FB8 / B / 0x9FD8); R8 ⅓ (a ✅; b 0x9FD8 vs 0x9FF8; c yes vs no). Total ≈ 2½/8.
+Weak points: a flag on a REASON was answered by changing a right VALUE (R1b); SHCSR/ICSR words
+  built without the field tables (0x0003_… drops the logged fault enables 16–18; 0x1008_0F00 puts
+  fields in wrong bits); PSP vs r0 timing (mrs/stmdb/ldmia/msr) still mixed up (R1d, R3b, R6b, R7c);
+  pop direction (R4a). Strengths: R2a–c (nested frame, MSP, RA rule applied), R6a (mvn), every flag
+  answered before the run (new rule kept). 5.3 DONE. Next: 5.4 (FP in tasks) or Phase 5 self-test.
