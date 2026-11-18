@@ -4570,3 +4570,46 @@ Weak points: a flag on a REASON was answered by changing a right VALUE (R1b); SH
   fields in wrong bits); PSP vs r0 timing (mrs/stmdb/ldmia/msr) still mixed up (R1d, R3b, R6b, R7c);
   pop direction (R4a). Strengths: R2a–c (nested frame, MSP, RA rule applied), R6a (mvn), every flag
   answered before the run (new rule kept). 5.3 DONE. Next: 5.4 (FP in tasks) or Phase 5 self-test.
+### 5.3b commit + next-step choice — session 25, 2026-11-18 19:04
+Commit 50026a6 (log, +89) pushed ff03ce0..50026a6; "^### 5.3" 15 (tutor expected 14 — all five
+  new headings start with 5.3), total 315. Theory recap (18:58): plain step-by-step of the 5.3b
+  GDB session (freeze mid-switch, pend SysTick via ICSR, nested on MSP, switch intact; E2 double
+  switch). Recommendation: 5.4 before the Phase 5 self-test (FP switch = last scheduler gap +
+  classic interview question; 5.2 LSPACT finding fresh; test should cover all of Phase 5).
+  Estimate: 5.4a design 1.5–2 h, 5.4b code + board 3–4 h, 5.4c corruption-then-fix 1–1.5 h, self-
+  test 1–1.5 h, Field Guide P5 1–1.5 h ≈ 8–10 h (3–4 sessions) before the 6 Dec time box.
+### Phase 5 self-test issued — session 25, 2026-11-18 19:15 (paper, open-book, 3 Qs)
+Decision (user, 19:13): 5.4 FP in tasks DEFERRED; Phase 5 wraps with self-test + Field Guide P5.
+Q1 SysTick frames (image 5.3): a from main printing (Thread MSP FPCA 1, sp 0x2000_FFF0): EXC_RETURN
+  + decode, words, base; b from task_a loop (sp 0x2000_8FFC): EXC_RETURN, base, SPREALIGN + rule; c
+  NEW: task_a after one FP instruction (FPCA 1), same sp: EXC_RETURN, words, base, FPCAR. Q2 PendSV
+  B→A walk from psp_s 0x2000_9FD8, g_tcb_a.sp 0x8FB8 (A frame SPREALIGN 1): r0 / psp_s after 0x5D4
+  0x5D8 0x5E8 0x5EA 0x5EE; g_tcb_b.sp after 0x5DC, cur after 0x5E6; psp_s at A's first instruction
+  (pop arithmetic + realign word). Q3 SHCSR + ICSR bit by bit at 5.3a H1, 5.3b G2, 5.3b G6; NEW d: IRQ
+  39 preempting SysTick-in-PendSV: SHCSR, ICSR, EXC_RETURN + where IRQ 39's active state lives.
+  Rules: every value sourced, field names + meanings, no symbolic values. Bench Map v226.
+### Phase 5 self-test graded — session 25, 2026-11-18 23:37: 1.6/3
+Q1 0.42: a ½ (0xFFFF_FFE9 ✅, 26 words ✅, base 0x2000_FF88 ✅ = 2.4/5.2 measured but not cited;
+  meanings ES "Thumb" / DCRS 0 / S "Non-secure" ❌ — ES 1 = Secure, DCRS bit 5 = 1, S 1 = Secure frame);
+  b ½ (0xFFFF_FFFD ✅, SPREALIGN 1 ✅, RPBVF p.109 ✅; base 0x8FDC ❌ = 0x8FD8 (realign 0x8FFC → 0x8FF8
+  first, 5.3a H1), RETPSR location 0x8FF8 ❌ = frame + 0x1C = 0x8FF4; same meanings errors); c ¼ (26
+  words ✅, FPCCR/FPCAR pages ✅; 0xFFFF_FFCD ❌ = 0xFFFF_FFED (DCRS 1; logged 4.1/4.2 PSP + FP);
+  base 0x8F94 ❌ = 0x8FF8 − 0x68 = 0x8F90; FPCAR 0x8F94 ❌ = base + 0x20 = 0x8FB0 (5.2: FPCAR = frame
+  + 0x20); RPBVF / RSGKY not cited).
+Q2 0.7: a 3/5 (0x5D4, 0x5D8, 0x5E8 ✅ incl. "PSP not updated until msr"; 0x5EA r0 0x8FDC ❌ =
+  0x8FB8 + 0x20 = 0x8FD8, 0x5EE follows ❌); b ✅ (0x9FB8, 0x2000_8020); c ½ (0x8FFC ✅ value; pop
+  arithmetic wrong: 0x8FD8 + 0x20 = 0x8FF8, + 4 because RETPSR.SPREALIGN 1 = 0x8FFC; rule not cited).
+Q3 0.51: a ½ (SHCSR 0x0007_0400 ✅ fields; ICSR 0x080F ❌ = 0x0000_080E, own table says VECTACTIVE
+  14); b ½ (SHCSR 0x0007_0C00 ✅; ICSR 0x080F ❌ = 0x0000_000F, own table RETTOBASE 0 vs bit 11 = 1);
+  c ½ (SHCSR ✅; ICSR 0x1008_0F00 ❌ = 0x1000_E80E — VECTPENDING 14 at 20:12 missing, fields
+  misplaced); d 0.55 (SHCSR 0x0007_0C00 ✅ — IRQs not in SHCSR; ICSR 0x0037_0800 ❌ = 0x0000_0037:
+  VECTACTIVE 55 in 8:0, RETTOBASE 0 — already MEASURED in the Phase 2 self-test GDB check (ICSR
+  0x0000_0037, lr 0xFFFF_FFF1, SHCSR 0x0000_0800); 0xFFFF_FFF1 ✅ value, meanings ½; NVIC_IABR ½ —
+  IABR1 bit 7 for IRQ 39, register ID not cited).
+Weak points (TOP for Phase 6): (1) EXC_RETURN MEANINGS — ES/DCRS/S wrong for the 5th time; values
+  right only when copied, wrong when derived (0xCD); (2) hex words built from a field table that the
+  value then contradicts (4 ICSR words); (3) SPREALIGN known but not applied to the frame base or the
+  pop (Q1b/c, Q2c); (4) citations missing although required. Strengths: Q2 r0-vs-PSP timing fixed
+  (stmdb/ldmia change r0 only, PSP only at msr), SHCSR words all right, IRQ active state in NVIC.
+GDB check: not needed — every value except Q1c is measured in the log (5.2, 5.3a, 5.3b, Phase 2
+  check); Q1c needs FP in a task (5.4, deferred). Next: Field Guide Phase 5, then Phase 5 closed.
