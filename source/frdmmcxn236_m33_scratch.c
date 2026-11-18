@@ -24,6 +24,7 @@
 4.3: SVC back to privileged (MPU off, SVC_Handler slot 11)
 5.1: two-task scheduler data (TCBs, initial frames in C), PendSV_Handler in .S slot 14, PendSV level 7
 5.2: first task start (main pends PendSV once via ICSR.PENDSVSET)
+5.3: SysTick pends PendSV every SLICE_TICKS ticks; task A LED, task B UART
 */
 
 #include <stdint.h>
@@ -67,6 +68,7 @@
 #define SCB_SHPR3_PRI14 	  0xE000ED22u /* DDI0553 D1.2.236 p.1847: SHPR3 PRI_14 = bits 23:16 (PendSV) */
 #define SCB_ICSR 				0xE000ED04u /* DDI0553 D1.2.126 p.1675 */
 #define SCB_ICSR_PENDSVSET 		(1u << 28)  /* DDI0553 D1.2.126 p.1676: W1S, writes of 0 ignored */
+#define SLICE_TICKS 			100u   /* 5.3: time slice in SysTick ticks (1 ms each) */
 
 #define NVIC_ISER1              0xE000E104u /* DDI0553 D1.2.186 p.1770 */
 #define NVIC_ISPR1              0xE000E204u /* DDI0553 D1.2.187 p.1771-1772 */
@@ -116,6 +118,7 @@ m33_tcb_t g_tcb_b;                         /* .bss; task B */
 volatile m33_tcb_t * volatile g_cur_tcb;   /* .bss; running task; 0 until the first switch (5.2) */
 volatile uint32_t g_cnt_a;                 /* .bss; task_a loop count */
 volatile uint32_t g_cnt_b;                 /* .bss; task_b loop count */
+volatile uint32_t g_tick;                  /* .bss; ticks into the current slice, reset every SLICE_TICKS (5.3) */
 
 static void uart4_putc(char c)
 {
@@ -135,10 +138,10 @@ static void uart4_puts(const char *s)
 }
 
 void SysTick_Handler(void) {
-    static uint32_t tick = 0;
-    if (++tick >= 500u) {          // 500 ms half-period, 10 ON / 10 s
-        tick = 0;
-        REG32(GPIO4_PTOR) = (1u << 18);   // toggle LED
+    g_tick++;
+    if (g_tick >= SLICE_TICKS) {
+        g_tick = 0;
+        REG32(SCB_ICSR) = SCB_ICSR_PENDSVSET; /* Pend PendSV for time slice */
     }
 }
 
@@ -226,6 +229,9 @@ static void task_a(void)
 	for (;;)
 	{
 		g_cnt_a++;
+		if ((g_cnt_a % 500000u) == 0u) {
+			REG32(GPIO4_PTOR) = (1u << 18); /* Toggle LED */
+		}
 	}
 }
 
@@ -234,6 +240,9 @@ static void task_b(void)
 	for (;;)
 	{
 		g_cnt_b++;
+		if ((g_cnt_b % 500000u) == 0u) {
+			uart4_puts("Task B active\r\n");
+		}
 	}
 }
 
@@ -306,10 +315,6 @@ int main(void)
 	g_tcb_b.name = "TaskB";
 	task_frame_init(&g_tcb_a, TASK_A_STACK_TOP, task_a, 0xA0000000u);
 	task_frame_init(&g_tcb_b, TASK_B_STACK_TOP, task_b, 0xB0000000u);
-	/* 5.2: start the first task: pend PendSV once (ICSR.PENDSVSET, D1.2.126 p.1676) */
-	REG32(SCB_ICSR) = SCB_ICSR_PENDSVSET;    // W1S, no RMW needed
-	__asm__ volatile ("dsb" : : : "memory"); // RSJQJ p.222 / RBMLS p.268
-	__asm__ volatile ("isb" : : : "memory"); // RNPDJ / RHMNM p.222, RWQQB p.268
 
 	/* IPPGV order: RVR, then CVR, then CSR.
 	 * (IVHDT: period = RELOAD+1; 48 MHz log 1e.2a) */
@@ -333,6 +338,10 @@ int main(void)
 	} else {
 		uart4_puts("IRQ 39 not taken yet\r\n");
 	}
+	/* 5.3: start the first task last (after SysTick + IRQ 39): pend PendSV once (ICSR.PENDSVSET, D1.2.126 p.1676) */
+	REG32(SCB_ICSR) = SCB_ICSR_PENDSVSET;    // W1S, no RMW needed
+	__asm__ volatile ("dsb" : : : "memory"); // RSJQJ p.222 / RBMLS p.268
+	__asm__ volatile ("isb" : : : "memory"); // RNPDJ / RHMNM p.222, RWQQB p.268
 
 	for (;;) {
     }
