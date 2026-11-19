@@ -7,7 +7,9 @@
  * 3.4: a real BusFault, and a handler that checks BFARVALID before using BFAR
  * 3.5: MemManage via the MPU
  * 4.3: SVCall vector -> SVC_Handler
- * 5.1: PendSV vector -> PendSV_Handler (scheduler core, defined below)*/
+ * 5.1: PendSV vector -> PendSV_Handler (scheduler core, defined below)
+ * 6.1: own PendSV_Handler removed; slots 11/14/15 now resolve to the FreeRTOS
+ *      port (portasm.c SVC_Handler 508 / PendSV_Handler 398, port.c SysTick_Handler 1054)*/
 
     .syntax unified
     .cpu    cortex-m33
@@ -120,28 +122,6 @@ Reset_Handler:
 
 Default_Handler:
     b       .                  /* any unexpected exception parks here */
-
-    .thumb_func
-    .globl  PendSV_Handler
-    .type   PendSV_Handler, %function
-PendSV_Handler:
-    ldr     r1, =g_cur_tcb       /* r1 = &g_cur_tcb */
-    ldr     r2, [r1]             /* r2 = running TCB; 0 on the first entry (.bss) */
-    cbz     r2, 1f               /* first entry: no task context to save */
-    mrs     r0, psp              /* outgoing task's PSP (MRS C2.4.125) */
-    stmdb   r0!, {r4-r11}        /* R4 lowest ... R11 highest (STMDB C2.4.223 p.908-909) */
-    str     r0, [r2]             /* cur->sp, offset 0 (5.0 F5) */
-1:  ldr     r3, =g_tcb_a
-    cmp     r2, r3
-    bne     2f                   /* cur = 0 or B -> next = A */
-    ldr     r3, =g_tcb_b         /* cur = A -> next = B */
-2:  str     r3, [r1]             /* g_cur_tcb = next */
-    ldr     r0, [r3]             /* next->sp */
-    ldmia   r0!, {r4-r11}        /* R4..R11 back; r0 -> hardware frame (LDM C2.4.76 p.659/662) */
-    msr     psp, r0              /* (MSR C2.4.126) */
-    ldr     lr, =0xFFFFFFFD      /* Thread, PSP, standard frame (5.0 D5) */
-    bx      lr                   /* exception return pops the 8-word frame from PSP (RWCGV p.121) */
-    .ltorg                     /* literal pool for the ldr =symbol loads */
 
 /* ---- Weak default for SysTick: link-time override by user ISR ---------- */
     .weak   SysTick_Handler

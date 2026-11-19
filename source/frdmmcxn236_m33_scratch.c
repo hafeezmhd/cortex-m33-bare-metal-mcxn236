@@ -25,9 +25,14 @@
 5.1: two-task scheduler data (TCBs, initial frames in C), PendSV_Handler in .S slot 14, PendSV level 7
 5.2: first task start (main pends PendSV once via ICSR.PENDSVSET)
 5.3: SysTick pends PendSV every SLICE_TICKS ticks; task A LED, task B UART
+6.1: FreeRTOS V11.2.0 ARM_CM33_NTZ port (SECURE_ONLY) on our startup/.ld; one LED task.
+     Phase 5 switcher, SysTick_Handler, SVC_Handler removed (port owns slots 11/14/15).
 */
 
 #include <stdint.h>
+#include <stddef.h>      /* size_t for memset/memcpy (6.0 D5 = N) */
+#include "FreeRTOS.h"
+#include "task.h"
 
 #define REG32(addr) (*(volatile uint32_t *)(addr))
 #define REG8(addr)  (*(volatile uint8_t *)(addr))
@@ -68,7 +73,6 @@
 #define SCB_SHPR3_PRI14 	  0xE000ED22u /* DDI0553 D1.2.236 p.1847: SHPR3 PRI_14 = bits 23:16 (PendSV) */
 #define SCB_ICSR 				0xE000ED04u /* DDI0553 D1.2.126 p.1675 */
 #define SCB_ICSR_PENDSVSET 		(1u << 28)  /* DDI0553 D1.2.126 p.1676: W1S, writes of 0 ignored */
-#define SLICE_TICKS 			100u   /* 5.3: time slice in SysTick ticks (1 ms each) */
 
 #define NVIC_ISER1              0xE000E104u /* DDI0553 D1.2.186 p.1770 */
 #define NVIC_ISPR1              0xE000E204u /* DDI0553 D1.2.187 p.1771-1772 */
@@ -91,8 +95,7 @@
 #define SCB_MMFAR 				0xE000ED34u // (D1.2.166 p.1739)
 #define SCB_SHCSR_MEMFAULTENA_Msk (1u << 16) // (D1.2.233 p.1838)
 #define SCB_CFSR_MMFARVALID_Msk	(1u << 7)  	// (D1.2.167 p.1740, D1.2.11 p.1477)
-#define TASK_A_STACK_TOP 		0x20009000u /* 5.0: task A stack 0x2000_8C00-0x2000_8FFF, 8-aligned (RJXJM p.79) */
-#define TASK_B_STACK_TOP 		0x2000A000u /* 5.0: task B stack 0x2000_9C00-0x2000_9FFF */
+#define TASK_A_STACK_WORDS 		256u        /* 6.1: 1 KB, static in .bss; confirm against .su + high-water mark (6.3) */
 
 volatile uint32_t g_lpflexcomm4_irq_count;   /* .bss (zeroed by Reset_Handler .S lines 100–107); written by the IRQ 39 handler, read in main from 2.5c/d onward → volatile: main's reads must not be kept in a register. */
 
@@ -105,20 +108,45 @@ volatile uint8_t g_bfar_valid;
 volatile uint32_t g_mmfar = 0;
 volatile uint8_t g_mmfar_valid = 0;
 
-volatile uint32_t g_svc_num;   /* .bss; imm8 of the last svc (C2.4.242 p.947) */
-volatile uint32_t g_svc_count; /* .bss; SVC_Handler entries */
-
-typedef struct {
-	uint32_t * volatile sp;   /* +0: saved PSP, written by PendSV_Handler (5.0 F4/F5) */
-	const char *name;         /* +4: task name, set in main */
-} m33_tcb_t;                 /* 8 B */
-
-m33_tcb_t g_tcb_a;                         /* .bss; task A */
-m33_tcb_t g_tcb_b;                         /* .bss; task B */
-volatile m33_tcb_t * volatile g_cur_tcb;   /* .bss; running task; 0 until the first switch (5.2) */
 volatile uint32_t g_cnt_a;                 /* .bss; task_a loop count */
-volatile uint32_t g_cnt_b;                 /* .bss; task_b loop count */
-volatile uint32_t g_tick;                  /* .bss; ticks into the current slice, reset every SLICE_TICKS (5.3) */
+
+volatile uint32_t g_assert_line;           /* 6.1: set by configASSERT (FreeRTOSConfig.h) */
+const char * volatile g_assert_file;       /* 6.1: set by configASSERT */
+
+static StaticTask_t s_task_a_tcb;                       /* 6.1: task A TCB, .bss (D3 = T) */
+static StackType_t  s_task_a_stack[TASK_A_STACK_WORDS]; /* 6.1: task A stack, .bss */
+static StaticTask_t s_idle_tcb;                         /* 6.1: idle task TCB, .bss */
+static StackType_t  s_idle_stack[configMINIMAL_STACK_SIZE]; /* 6.1: idle task stack, .bss */
+
+/* 6.0 D5 = N: -nostdlib kept, so the kernel's memset/memcpy (12 calls) and any
+ * GCC-emitted ones resolve here. Byte loops; the attribute stops GCC turning
+ * the loop back into a call to itself at higher -O levels. */
+__attribute__((optimize("no-tree-loop-distribute-patterns")))
+void *memset(void *s, int c, size_t n)
+{
+	unsigned char *p = (unsigned char *)s;
+	while (n-- != 0u) { *p++ = (unsigned char)c; }
+	return s;
+}
+
+__attribute__((optimize("no-tree-loop-distribute-patterns")))
+void *memcpy(void *restrict dst, const void *restrict src, size_t n)
+{
+	unsigned char *d = (unsigned char *)dst;
+	const unsigned char *s = (const unsigned char *)src;
+	while (n-- != 0u) { *d++ = *s++; }
+	return dst;
+}
+
+/* 6.0 D3: static allocation without kernel-provided memory -> we supply the idle task's */
+void vApplicationGetIdleTaskMemory(StaticTask_t **ppxIdleTaskTCBBuffer,
+                                   StackType_t **ppxIdleTaskStackBuffer,
+                                   configSTACK_DEPTH_TYPE *puxIdleTaskStackSize)
+{
+	*ppxIdleTaskTCBBuffer   = &s_idle_tcb;
+	*ppxIdleTaskStackBuffer = s_idle_stack;
+	*puxIdleTaskStackSize   = configMINIMAL_STACK_SIZE;
+}
 
 static void uart4_putc(char c)
 {
@@ -134,14 +162,6 @@ static void uart4_puts(const char *s)
     while (*s != '\0') {     /* stop at the null terminator */
         uart4_putc(*s);      /* emit the current character   */
         s++;                 /* advance to the next one      */
-    }
-}
-
-void SysTick_Handler(void) {
-    g_tick++;
-    if (g_tick >= SLICE_TICKS) {
-        g_tick = 0;
-        REG32(SCB_ICSR) = SCB_ICSR_PENDSVSET; /* Pend PendSV for time slice */
     }
 }
 
@@ -195,75 +215,15 @@ void MemManage_Handler(void)
 	{}
 }
 
-void SVC_Handler(void)
+static void task_a(void *pv)                /* 6.1: the one task: LED every 500 ms */
 {
-    uint32_t *stacked_sp;
-    __asm__ volatile (                 /* EXC_RETURN bit 2 = SPSEL (D1.2.96 p.1628) */
-        "tst lr, #4\n\t"
-        "ite eq\n\t"
-        "mrseq %0, msp\n\t"
-        "mrsne %0, psp\n\t"
-        : "=r" (stacked_sp)
-    );
-    uint32_t return_address = stacked_sp[6];   /* ReturnAddress at +0x18 (B3.19 p.107); next instr (RQLHB p.105) */
-    uint8_t svc_num = ((uint8_t *)return_address)[-2]; /* SVC T1 imm8 = bits 7:0 (C2.4.242 p.947), little-endian */
-    g_svc_num = svc_num;
-
-    uint32_t ctrl_val;
-    __asm__ volatile ("mrs %0, control" : "=r" (ctrl_val));
-    ctrl_val &= ~(1u << 0);            /* nPRIV = CONTROL bit 0 (D1.2.13 p.1480) */
-    __asm__ volatile ("msr control, %0" : : "r" (ctrl_val) : "memory");
-    __asm__ volatile ("isb" : : : "memory"); /* RSNGJ p.73 */
-
-    g_svc_count++;
-}
-
-static void task_exit_trap(void)   /* LR slot of every initial frame (5.0, BX C2.4.29 p.584) */
-{
-	for (;;)
-	{}
-}
-
-static void task_a(void)
-{
+	(void)pv;
 	for (;;)
 	{
 		g_cnt_a++;
-		if ((g_cnt_a % 500000u) == 0u) {
-			REG32(GPIO4_PTOR) = (1u << 18); /* Toggle LED */
-		}
+		REG32(GPIO4_PTOR) = (1u << 18);        /* toggle red LED P4_18 */
+		vTaskDelay(pdMS_TO_TICKS(500u));        /* block 500 ticks -> idle runs */
 	}
-}
-
-static void task_b(void)
-{
-	for (;;)
-	{
-		g_cnt_b++;
-		if ((g_cnt_b % 500000u) == 0u) {
-			uart4_puts("Task B active\r\n");
-		}
-	}
-}
-
-/* 5.1 C1: build the 16-word initial frame below stack_top (5.0 final design) and set tcb->sp */
-static void task_frame_init(m33_tcb_t *tcb, uint32_t stack_top, void (*entry)(void), uint32_t tag)
-{
-	uint32_t *p = (uint32_t *)stack_top - 16u;   /* 16 words = 64 B below the top (5.0 D6) */
-
-	for (uint32_t n = 4u; n <= 11u; n++)
-	{
-		p[n - 4u] = tag | n;                     /* +0..+28: R4..R11, lowest register lowest (STMDB p.909, LDM p.662) */
-	}
-	p[8]  = tag | 0u;                            /* +32 R0 */
-	p[9]  = tag | 1u;                            /* +36 R1 */
-	p[10] = tag | 2u;                            /* +40 R2 */
-	p[11] = tag | 3u;                            /* +44 R3 */
-	p[12] = tag | 12u;                           /* +48 R12 */
-	p[13] = (uint32_t)task_exit_trap;            /* +52 LR: used by the task's own return, bit 0 must be 1 (C2.4.29 p.584) */
-	p[14] = (uint32_t)entry;                     /* +56 ReturnAddress: bit 0 discarded on exception return (RWCGV p.121) */
-	p[15] = 0x01000000u;                         /* +60 RETPSR: T = 1 (D1.2.221 p.1818) */
-	tcb->sp = p;                                 /* saved PSP = frame base (5.0 D6) */
 }
 
 int main(void)
@@ -309,24 +269,9 @@ int main(void)
 	__asm__ volatile ("dsb":::"memory"); // RSJQJ p.222 / RBMLS p.268
 	__asm__ volatile ("isb":::"memory"); // RNPDJ / RHMNM p.222, RWQQB p.268
 
-	/* 5.1: PendSV at the lowest level (level 7 of 8, 3 bits: log 2.2a) */
-	REG8(SCB_SHPR3_PRI14) = 0xE0u;
-	g_tcb_a.name = "TaskA";
-	g_tcb_b.name = "TaskB";
-	task_frame_init(&g_tcb_a, TASK_A_STACK_TOP, task_a, 0xA0000000u);
-	task_frame_init(&g_tcb_b, TASK_B_STACK_TOP, task_b, 0xB0000000u);
-
-	/* IPPGV order: RVR, then CVR, then CSR.
-	 * (IVHDT: period = RELOAD+1; 48 MHz log 1e.2a) */
-	REG32(SYST_RVR) = 47999u;      /* 48 MHz: 48000 ticks - 1 = 1 ms */
-	REG32(SYST_CVR) = 0u;          /* clear CVR and COUNTFLAG; reload next edge */
-
-
+	/* 6.1: PendSV/SysTick priorities and SysTick itself are now set by the port
+	 * (port.c 1818/1819, vPortSetupTimerInterrupt) inside vTaskStartScheduler. */
 	uart4_puts("Hello\r\n");
-
-	REG8(SCB_SHPR3_PRI15) = 0x80u; // bits [7:5] = level 4 (log 2.2a); 3 priority bits implemented
-
-	REG32(SYST_CSR) = (1u << 2) | (1u << 1) | (1u << 0); // ENABLE, TICKINT and CLKSOURCE
 
 	REG32(NVIC_ISER1) = NVIC_ISER1_IRQ39_SET; // W1S write (DDI0553 D1.2.186 p.1770)
 	REG32(NVIC_ISPR1) = NVIC_ISPR1_IRQ39_SET; // W1S write (DDI0553 D1.2.187 p.1771-1772)
@@ -338,10 +283,11 @@ int main(void)
 	} else {
 		uart4_puts("IRQ 39 not taken yet\r\n");
 	}
-	/* 5.3: start the first task last (after SysTick + IRQ 39): pend PendSV once (ICSR.PENDSVSET, D1.2.126 p.1676) */
-	REG32(SCB_ICSR) = SCB_ICSR_PENDSVSET;    // W1S, no RMW needed
-	__asm__ volatile ("dsb" : : : "memory"); // RSJQJ p.222 / RBMLS p.268
-	__asm__ volatile ("isb" : : : "memory"); // RNPDJ / RHMNM p.222, RWQQB p.268
+	/* 6.1: one static task at priority 1 (idle = 0), then hand the CPU to FreeRTOS */
+	(void)xTaskCreateStatic(task_a, "TaskA", TASK_A_STACK_WORDS, NULL, 1u,
+	                        s_task_a_stack, &s_task_a_tcb);
+	uart4_puts("Scheduler start\r\n");
+	vTaskStartScheduler();                   /* does not return: MSP reset, svc 102, first task */
 
 	for (;;) {
     }
