@@ -4671,3 +4671,38 @@ learning_log.md 4,654 lines, LF only, newline at EOF, md5 ebbdacb5aa175443f0f621
   VTOR 0xe000ed08) → session-9 note confirmed upstream, SDK 26.06 copy still to check (6.0).
   Asked: git log --oneline -3 + git status --short (owed: "log: session 25 end + summary"),
   Breakpoints view empty?, any debug session left? Phase 6 step list proposed; waiting for "go".
+
+### 6.0 issued — session 26, 2026-11-19 09:45 (paper, lighter format)
+Phase 6 step list approved ("go", 09:42). Commit 553febc "log: session 26 intake" pushed (322
+  headings). 6.0: step 1 SDK Select-String check (kernel version, port.c includes/raw addresses,
+  handler names, memset/memcpy count, header EXC_RETURN lines 2302–2308); user composes D1 kernel
+  source (S/U), D2 file list, D3 allocation (T/H), D4 handler clash (file + line), D5 libc (N/L),
+  D6 SECURE_ONLY/TRUSTZONE/MPU/FPU + initial EXC_RETURN 8-bit back-decode, D7
+  configMAX_SYSCALL_INTERRUPT_PRIORITY; Q1 vStartFirstTask MSP reset vs 5.2 frame 0x2000_FF88, Q2
+  saved-context words + per-task EXC_RETURN, Q3 BASEPRI vs IRQ 39 level 0 / FromISR. Upstream
+  reference: FreeRTOS-Kernel 83a45bf (V11.1.0+). Bench Map v231.  
+### 6.0 step 1 SDK check — session 26, 2026-11-19 10:10
+SDK 26.06 rtos\freertos: freertos-kernel + freertos-kernel-upstream; tasks.c only in -upstream →
+  kernel V11.2.0 (task.h:56). port.c includes FreeRTOS.h 37, task.h 38, mpu_wrappers.h 41,
+  mpu_syscall_numbers.h 42, portasm.h 45 (secure_context.h 49 / secure_init.h 50 under TrustZone) —
+  no CMSIS; raw addresses SYSTICK_CTRL 0xe000e010 (94), SHPR3 0xe000ed20 (97), VTOR 0xe000ed08 (112)
+  → session-9 note CONFIRMED on the SDK copy. portINITIAL_EXC_RETURN 0xfffffffd (308) / 0xffffffbc
+  (325), used at 1627 / 1673. Handlers: SysTick_Handler port.c 1054; PendSV_Handler portasm.c 269
+  (MPU) / 398 (non-MPU); SVC_Handler portasm.c 470 (MPU) / 508 (non-MPU). memset/memcpy in tasks.c +
+  queue.c: 12. core_cm33_sdk26.6.h EXC_RETURN_S..ES 2303–2308. SDK line numbers differ from the
+  upstream-main numbers quoted at issue → cite SDK lines. Bench Map v232.
+### 6.0 SDK line map — session 26, 2026-11-19 11:21
+port.c (V11.2.0): handler check 1720–1740 (assert SVC 1737, PendSV 1738); priority probe SHPR2 =
+  0xFF000000 1754, configASSERT(ucMaxSysCallPriority) 1768 (no separate
+  vPortConfigureInterruptPriorities matched — probe appears inline); SHPR3 |= PENDSV/SYSTICK 1818/1819;
+  vPortValidateInterruptPriority 2095, assert 2132. portasm.c: vStartFirstTask 214 (ldr VTOR 220,
+  svc 228); ulSetInterruptMask 235 (msr basepri 243); non-MPU PendSV 398 (tst lr,#0x10 407, stmdb
+  r0!,{r2-r11} 414). freertos-kernel folder: 14 files, names truncated by Format-Table → re-listed
+  by name (optional). These SDK lines replace the upstream numbers quoted at 6.0 issue. Bench Map v233.
+### 6.0 freertos-kernel folder listed — session 26, 2026-11-19 11:22
+SDK rtos\freertos\freertos-kernel = NXP wrapper, no kernel source: CMakeLists.txt, LICENSE, 5 x
+  middleware_freertos-kernel*.cmake, README.md, SCR.txt, include\freertos_tasks_c_additions.h,
+  mcuxsdk-doc\*.png, template\FreeRTOSConfig.h, ARM_CM33_3_priority_bits\FreeRTOSConfig_Gen.h.
+  → the only kernel source is freertos-kernel-upstream (V11.2.0). Template configs NOT opened (rule:
+  no template values). Folder name "ARM_CM33_3_priority_bits" = independent NXP statement agreeing
+  with 2.2a (0xFF → 0xE0, 3 bits); cite name only.  
