@@ -4613,3 +4613,42 @@ Weak points (TOP for Phase 6): (1) EXC_RETURN MEANINGS — ES/DCRS/S wrong for t
   (stmdb/ldmia change r0 only, PSP only at msr), SHCSR words all right, IRQ active state in NVIC.
 GDB check: not needed — every value except Q1c is measured in the log (5.2, 5.3a, 5.3b, Phase 2
   check); Q1c needs FP in a task (5.4, deferred). Next: Field Guide Phase 5, then Phase 5 closed.
+### Phase 5 closed — session 25, 2026-11-19 08:42–09:05
+Field Guide (doc 8724fa96, rev 42 → 53) heading → "M33 Field Guide: Phases 0–5 in Plain Words"
+  (H1 + intro "Phase 5 (sessions 1–25)"; the doc's display title could not be renamed from here —
+  rename it on claude.ai). New sections after "SVC: asking for privilege back": A two-task scheduler
+  of our own (5.0–5.1: stacks/TCB table, hand-built 16-word frame table, PendSV_Handler 8 steps with
+  image 5.3 addresses, why PendSV is lowest); Starting the first task (5.2: measured table, lazy FP
+  state left behind FPCCR 0xC000_047D / FPCAR 0x2000_FFA8, trap: pend after everything main must
+  do); Time slicing (5.3a: 4-step slice boundary with RFKXX tail-chain, RPBVF realign 0x8FFC → 0x8FF8
+  → frame 0x8FD8 SPREALIGN 1, B 0x9FD8 SPREALIGN 0, numbers table 70 cycles / 4,800,954 / ~46 per
+  pass, RMRDS flags UNKNOWN, RDQHW no barrier); Breaking into a switch on purpose (5.3b: E1/E2 table,
+  why safe, double-switch cost, ISRPREEMPT, bp numbering). EXC_RETURN table + row 0xFFFF_FFFD with
+  the ES / DCRS / S meanings. Lessons: Phase 5 additions (7 items) + self-test 1.6/3 line. Quick
+  reference: Phase 5 numbers (image 5.3, 12 rows). Still open: "Phase (5): done …"; Phase 5 open
+  items (FP in tasks / LSPACT left 1, Q1c unmeasured, 5.3b B RA not dumped, next phase 6 = FreeRTOS
+  ARM_CM33_NTZ port vs our switcher).
+PHASE 5 CLOSED (5.0 paper, 5.1 5½/8, 5.2 3/8, 5.3a 3/8, 5.3b 2½/8, self-test 1.6/3; 5.4 deferred).
+  Board: image 5.3, no session, no breakpoints. Bench Map v228. Next: Phase 6 (plan before 6 Dec).
+### Session 25 end (2026-11-19 09:10)
+Session ended at the user's request (fresh session next with a continuation prompt). State: image 5.3
+  in flash (2a202a9); last run (5.3b) ended halted at G9 bp 0x2C4 and was Terminated. Phase 5
+  CLOSED; 5.4 deferred. Field Guide doc 8724fa96 rev 53 (heading Phases 0–5; card title rename by
+  user). Bench Map v228. Next: session-26 intake, then the Phase 6 plan (FreeRTOS ARM_CM33_NTZ port on
+  our startup/.ld). Continuation prompt: continuation_prompt_session26.txt.
+### Session 25 summary (2026-11-17 16:08 → 2026-11-19 09:10)
+Intake: log lacked Session 24 end/summary (user's session24_end_blocks.md appended with a leading
+  newline — log had no EOF newline); sources = image 5.1, md5s first recorded; Bench Map caught up.
+5.2 (3/8): start pend after line 308 → main never resumes; entry LR 0xFFFF_FFE9, 26-word MSP frame
+  0x2000_FF88 never popped, RA 0x430 = isb; task_a PSP 0x2000_9000; FPCCR 0xC000_047D / FPCAR
+  0x2000_FFA8 left with LSPACT 1. Theory: "pend"; why SysTick pends; objective of Phase 5.
+5.3a (3/8): SysTick g_tick / SLICE_TICKS 100 → PENDSVSET; A LED, B UART (500000u); start pend after
+  the IRQ 39 if/else; tail-chain (LR 0xFFFF_FFFD), SPREALIGN 1 (A 0x8FD8) / 0 (B 0x9FD8), saved PSPs
+  0x8FB8 / 0x9FB8, switch 70 cycles, slice 4,800,954; 9 of 12 misses flagged, no addendum.
+5.3b (2½/8): GDB-forced SysTick inside PendSV — nested on MSP, switch intact (5.1 Q3 claim
+  confirmed); g_tick 99 → active-and-pending → double switch; all flags answered (new rule kept), one
+  right value changed. Self-test 1.6/3. Field Guide Phases 0–5. PHASE 5 CLOSED.
+Commits: 386e8c0, c00f67a, c82240a, 2a202a9, ff03ce0, 50026a6, 2f819ae, Phase-5-closed log commit.
+Tutor corrections: reconstructed session-24 end blocks withdrawn for the user's original; GDB list
+  used delete 2 / condition 1 (temporary bp = #1); "^### 5.3" expected counts 9 / 14 (actual 10 /
+  15). Bench Map v219 → v228.
