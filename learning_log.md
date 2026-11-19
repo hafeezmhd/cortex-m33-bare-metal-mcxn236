@@ -4706,3 +4706,146 @@ SDK rtos\freertos\freertos-kernel = NXP wrapper, no kernel source: CMakeLists.tx
   → the only kernel source is freertos-kernel-upstream (V11.2.0). Template configs NOT opened (rule:
   no template values). Folder name "ARM_CM33_3_priority_bits" = independent NXP statement agreeing
   with 2.2a (0xFF → 0xE0, 3 bits); cite name only.  
+### 6.0 graded — session 26, 2026-11-19 12:13
+Score 5¾/10 (1 per item): D1 ½ (S/U mislabelled — SDK kernel IS upstream V11.2.0), D2 ½ (own files
+  mixed in; port headers + include\ missing; left-out list not about kernel files), D3 ½ (T right,
+  reason off, timer callback not needed with timers off), D4 ½ (slots + 1737/1738 right; the 3 link
+  clashes .S PendSV_Handler / .c SysTick_Handler / .c SVC_Handler not named), D5 ¼ (not one pick, no
+  memset/memcpy reason), D6 ¾ (values 1/0/0/1 and 0xFD bits right; S meaning wrong — "return target"
+  vs header 2303 "stack used to push registers"; ES vague vs 2308 → TOP weak point still open), D7 ½
+  ("0x20 or 0x40"), Q1 1 (MSP ← VTOR[0] 0x2001_0000 reclaims 5.2 frame 0x2000_FF88), Q2 ½ (per-task
+  EXC_RETURN/FType reason right; 10 words = PSPLIM + EXC_RETURN + R4–R11 muddled), Q3 ¾ (BASEPRI +
+  FromISR right; SysTick/PendSV masked not stated; port SHPR3 |= 1818/1819 overrides our .c 327
+  0x80). Answers carried pasted citation markers without line numbers. Rework owed: D1, D2, D3
+  reason, D4, D5, D6 S/ES, D7. Bench Map v234.
+### 6.0 rework graded — 6.0 CLOSED — session 26, 2026-11-19 12:24
+Rework 8½/10: D1 S (SDK freertos-kernel-upstream V11.2.0) ✅; D2 ¾ (include\ + left-out list
+  right; missed portasm.h (port.c 45) and portmacrocommon.h; portmacro.h arrives via FreeRTOS.h →
+  portable.h, not port.c 37–45); D3 T + nm reason ✅; D4 ½ (structure + .weak reasoning right, line
+  numbers from OLD files startup_m33_3.S / _scratch_4.c — real: .S PendSV_Handler 124–144 (label
+  127, .ltorg 144); .c SysTick_Handler 140–146 + g_tick 121 + SLICE_TICKS 71; SVC_Handler 198–219 +
+  g_svc_num/count 108/109; also main SysTick setup 321–329 must go — port programs SysTick); D5 L,
+  drop -nostdlib ✅; D6 S = stack pushed on, ES = state taken to, both 1 (Secure) ✅ — TOP weak
+  point answered on paper, confirm on live LR in 6.1; D7 0x20 (0x20&0xE0=0x20, 0x20&0x1F=0), IRQ 39
+  level 0 cannot FromISR (2132) ✅. Q2 fixed by tutor: 10 words (PSPLIM, EXC_RETURN, R4–R11) vs our 8.
+  FreeRTOSConfig.h drafted (static only, timers off, SECURE_ONLY 1 / TZ 0 / MPU 0 / FPU 1, MAX_SYSCALL
+  0x20, CHECK_HANDLER_INSTALLATION 1, configASSERT → g_assert_file/line; configKERNEL_INTERRUPT_
+  PRIORITY unused by this port). Pending: Select-String confirm of D4 lines. Bench Map v235.
+### 6.0 CLOSED + 6.1a issued — session 26, 2026-11-19 12:42
+D4 lines confirmed by Select-String on source\: .S PendSV_Handler 127, .ltorg 144 (115 =
+  Reset_Handler pool, stays); .c SLICE_TICKS 71, g_svc_num 108, g_svc_count 109, g_tick 121,
+  SysTick_Handler 140, SVC_Handler 198 → 6.0 CLOSED. 6.1a issued: copy SDK freertos-kernel-upstream
+  V11.2.0 tasks.c, queue.c, list.c, LICENSE.md, include\*.h, port.c, portasm.c, portasm.h,
+  portmacro.h, portmacrocommon.h into source\freertos\ (same sub-paths); FreeRTOSConfig.h (sha256
+  5e810ec2…03df2c, 84 lines LF) into source\; SHA-256 check SDK vs copy per file. No build (auto-build
+  off) until 6.1b include paths + library and 6.1c source edits. Bench Map v236.
+### 6.1a licence check — session 26, 2026-11-19 13:01
+SDK freertos-kernel-upstream root has no LICENSE file (root: croutine.c, event_groups.c, list.c,
+  queue.c, stream_buffer.c, tasks.c, timers.c + 11 NXP *.cmake). NXP wrapper
+  freertos-kernel\LICENSE = BSD-3-Clause (26 lines) → covers NXP's CMake glue, NOT the kernel →
+  not copied. Kernel licence = MIT text in each file header. Top-level MIT LICENSE for
+  source\freertos\ deferred to repo packaging (2–5 Dec), from the official FreeRTOS-Kernel repo.
+  Tutor error: a "<name>" placeholder in a runnable command → Copy-Item "Illegal characters in
+  path", no effect; no placeholders in runnable commands from now on.
+  SPDX check: source\freertos\tasks.c:5 / :7 and ...\non_secure\port.c:7 / :9 = "SPDX-License-Identifier:
+  MIT" + MIT "Permission is hereby granted" → licence carried in file headers ✅.
+### 6.1a done — session 26, 2026-11-19 13:07
+SHA-256 SDK vs copy: 29/29 OK — source\freertos\ list.c, queue.c, tasks.c; include\ 21 headers
+  (atomic, croutine, deprecated_definitions, event_groups, FreeRTOS, list, message_buffer,
+  mpu_prototypes, mpu_syscall_numbers, mpu_wrappers, newlib-freertos, picolibc-freertos, portable,
+  projdefs, queue, semphr, StackMacros, stack_macros, stream_buffer, task, timers); portable\GCC\
+  ARM_CM33_NTZ\non_secure\ port.c, portasm.c, portasm.h, portmacro.h, portmacrocommon.h.
+  FreeRTOSConfig.h in source\ sha256 5e810ec2…03df2c, 84 lines ✅. Not built, not committed.
+  6.1b-1 issued: read-only paste of MCU C Compiler / Assembler / Linker "All options", Linker
+  General ticks (-nostdlib?), Managed Linker Script (manage? library? script path).
+### 6.1b-1 build settings read — session 26, 2026-11-19 13:37
+MCU C Compiler: -DCPU_MCXN236VDF … -D__REDLIB__ -I"…\source" -O0 -g3 -gdwarf-4 -Wall
+  -ffunction-sections -fdata-sections -fno-builtin -mcpu=cortex-m33 -mfpu=fpv5-sp-d16
+  -mfloat-abi=hard -mthumb -fstack-usage -specs=redlib.specs. Assembler: -x assembler-with-cpp
+  -D__REDLIB__ -I"…\source" … -specs=redlib.specs. Linker: -nostdlib -Map --gc-sections
+  -print-memory-usage --sort-section=alignment --cref -mfloat-abi=hard -T m33_scratch.ld -L .. →
+  no library linked today (not even libgcc). D5 "L = drop -nostdlib" is unsound: the driver would
+  add crt0/crti/crtbegin + full newlib (≠ Redlib headers, needs .init/.fini our .ld lacks). Tutor
+  accepted D5 at 12:24 without checking the link line — correction logged. D5 to re-pick: N (own
+  memset/memcpy, -nostdlib kept) or L (keep -nostdlib + explicit Redlib archives). 6.1b-2 issued:
+  add -I source/freertos/include and source/freertos/portable/GCC/ARM_CM33_NTZ/non_secure (Debug,
+  workspace_loc form), no build.
+### 6.1b done + D5 re-pick + 6.1c issued — session 26, 2026-11-19 13:45
+D5 re-picked N (keep -nostdlib, own memset/memcpy byte loops): link stays transparent, covers
+  kernel's 12 calls + GCC-emitted ones. 6.1b: compiler -I now source, source\freertos\include,
+  source\freertos\portable\GCC\ARM_CM33_NTZ\non_secure (Debug, workspace_loc; shown absolute in All
+  options). 6.1c files issued: startup_m33.S 150 lines sha256 4a5586a2…a878e2 (PendSV_Handler block
+  124–144 deleted, header comment +2); frdmmcxn236_m33_scratch.c 294 lines sha256 c640bdc9…6d83d0
+  (removed Phase 5 TCBs/frames/task_b/PENDSVSET start, SysTick_Handler + g_tick + SLICE_TICKS,
+  SVC_Handler + g_svc_*, main SysTick RVR/CVR/CSR + SHPR3 writes, TASK_A/B_STACK_TOP; added
+  FreeRTOS.h/task.h, memset/memcpy with no-tree-loop-distribute-patterns, g_assert_line/file,
+  vApplicationGetIdleTaskMemory, static TCB/stack for task A (256 words) + idle (128 words), task_a
+  LED + vTaskDelay(500 ms), xTaskCreateStatic prio 1 + vTaskStartScheduler). Tutor trial build
+  (arm-none-eabi-gcc 13.2.1, newlib headers, -nostdlib): 0 warnings, FLASH 5940 B, RAMB 1944 B,
+  word0 0x2001_0000, slots 11/14/15 = 0xa6d/0xa0d/0x695 = port SVC/PendSV/SysTick. Not yet built in
+  IDE. Bench Map v237.
+### 6.1c done + 6.1d issued — session 26, 2026-11-19 14:25
+6.1c applied: frdmmcxn236_m33_scratch.c sha256 c640bdc9…6d83d0 294 lines ✅, startup_m33.S
+  4a5586a2…a878e2 150 lines ✅. git status: M .cproject (+2 = 6.1b include paths), M .c, M .S, ??
+  source/FreeRTOSConfig.h, ?? source/freertos/; --stat 59 insertions, 131 deletions; .S diff = header
+  comment + PendSV block only ✅. 6.1d issued: Clean + Build (Debug); paste warnings/errors, memory
+  table, map addresses of SVC/PendSV/SysTick/Reset/vStartFirstTask/memset/memcpy/idle-memory/
+  pxCurrentTCB, check no handler from our objects, .su for our file + kernel call chain; stage 33
+  files (no push yet).
+### 6.1d build — session 26, 2026-11-19 14:28
+Clean + Build Debug: 0 errors, 0 warnings (5.7 s). 7 objects: port.o, portasm.o, list.o, queue.o,
+  tasks.o, frdmmcxn236_m33_scratch.o, startup_m33.o; link -nostdlib -T m33_scratch.ld --gc-sections.
+  FLASH 5868 B (0.56%), RAMB 1936 B (5.91%); size: text 5858, data 8, bss 1928. Tutor trial build
+  (newlib headers) 5940 / 1944 B — differs by header/toolchain only. Map / .su checks pending.
+### 6.1d PASS (build) + 6.1e issued — session 26, 2026-11-19 15:45
+Map: SysTick_Handler 0x228, vStartFirstTask 0x554, PendSV_Handler 0x574, SVC_Handler 0x5d4,
+  vApplicationGetIdleTaskMemory 0x1138, Reset_Handler 0x1420, memset 0x1618, pxCurrentTCB
+  0x2000800c; handler grep against startup_m33/scratch.o empty → no clash; memcpy gc'd (no caller
+  until queue.c used in 6.2). .su (all static): memset 32, memcpy 32, vApplicationGetIdleTaskMemory
+  24, uart4_putc 16, uart4_puts 16, task_a 16, main 32; vTaskDelay 24, vTaskStartScheduler 16,
+  xTaskResumeAll 40, xTaskIncrementTick 40, vTaskSwitchContext 24, prvIdleTask 16,
+  prvAddCurrentTaskToDelayedList 32, xPortStartScheduler 24 → task_a deepest ≈ 120 B + switch ≤ 208 B
+  ≪ 1024 B. 33 files staged (M .cproject/.c/.S, A FreeRTOSConfig.h + 29 kernel files). Commit +
+  push. 6.1e issued: predictions P1–P6, then flash; BP vStartFirstTask / SVC_Handler / task_a; MSP
+  reset, svc LR back-decode + frame size, CONTROL, BASEPRI, PSP, PSPLIM vs s_task_a_stack,
+  g_assert_line, UART + LED free run. Bench Map v238.
+### 6.1e run 1 (partial) — session 26, 2026-11-19 16:14
+Predictions NOT sent before the run → P1 forfeited (measured, not predicted). BP1 vStartFirstTask
+  (0x554, portasm.c 216): MSP 0x2000_FFB8 (72 B used below 0x2001_0000 by main + scheduler start);
+  VTOR 0x0000_0000; word0 0x2001_0000; $control / $basepri = void (register names differ in this
+  GDB server). stepi ×6 → 0x562 (past ldr ×3, msr msp, cpsie i, cpsie f): MSP = 0x2001_0000 →
+  main's frame reclaimed, 6.0 Q1 CONFIRMED on hardware. Reaching BP1 ⇒ port.c 1737/1738 handler
+  asserts passed (g_assert_line check pending). "BP2" readings lr 0x4e1, msp 0x2001_0000, size 0 were
+  taken at 0x562, not in SVC_Handler → VOID (0x4e1 = return into xPortStartScheduler). Next: register
+  names (info all-registers), P2–P6, continue to BP2/BP3.
+### 6.1e register names + pre-svc state — session 26, 2026-11-19 16:25
+GDB names (info all-registers): control_s / basepri_s / primask_s / faultmask_s / msplim_s /
+  psplim_s / msp_s / psp_s (Secure, live) + *_ns set (unused). At 0x562 (vStartFirstTask+14, after
+  msr msp + cpsie i/f): msp_s 0x2001_0000, psp_s 0, control_s 0xC, basepri_s 0x20 (= D7, kernel
+  critical section from task create / scheduler start still holding SysTick masked), primask_s 0,
+  msplim_s 0, psplim_s 0, s15 = 3.0 (raw 0x40400000, main .c 272–273), fpccr 0xC000047C, fpcar
+  0x2000FF98, lr 0x4e1 = xPortStartScheduler+292. control_s decode (C0) owed with P2–P6.
+### 6.1e predictions — session 26, 2026-11-19 16:28 (before BP2/BP3)
+C0 control_s 0xC: nPRIV 0, SPSEL 0, FPCA 1, SFPA 1. P2 LR at SVC_Handler 0xFFFF_FFE9, decoded as
+  ES 1, b1 0, SPSEL 0, Mode 1, FType 0, DCRS 0, S 1, b7 1. P2b frame 104 B (0x68, 26 words). P3
+  control_s in task_a 0xE (nPRIV 0, SPSEL 1, FPCA 1, SFPA 1). P4 basepri_s 0x0. P5 psplim_s = base
+  of task_a's static stack ("g_task_a_stack"). P6 UART "Hello", "IRQ 39 taken", "Task B active";
+  LED every 500,000 loop iterations, ≈5 blinks in 10 s. Recorded verbatim; graded after the run.
+### 6.1e PASS — 6.1 CLOSED — session 26, 2026-11-19 16:41
+BP2 SVC_Handler (0x5d4, portasm.c 510): LR 0xFFFF_FFE9, MSP 0x2000_FF98 → frame 0x68 = 104 B
+  (extended: FPCA = 1 from main .c 272–273), control_s 0x0 (FPCA/SFPA cleared on entry), basepri_s
+  0x20. BP3 task_a (0x127c, .c 223): control_s 0x2 (SPSEL 1, nPRIV 0, FPCA 0), basepri_s 0x0
+  (vRestoreContextOfFirstTask, portasm.c 131+), PSP 0x2000_8530 (start 0x2000_8540 after 8-word pop,
+  − task_a prologue 16 B = .su), psplim_s 0x2000_8148 = &s_task_a_stack, &s_task_a_stack[256]
+  0x2000_8548, g_assert_line 0 (port.c 1737/1738 passed). Free run: UART "Hello" / "IRQ 39 taken" /
+  "Scheduler start"; LED 10 blinks in 10 s = toggle every 500 ms (vTaskDelay(pdMS_TO_TICKS(500))).
+  Predictions 5¼/7: C0 ✅; P2 hex ✅, DCRS decoded 0 but 0xE9 = 1110_1001 → bit 5 = 1 (½); P2b 104 B
+  ✅; P3 ❌ 0xE vs 0x2 (FPCA = NOT FType = NOT 1 = 0; SFPA 0); P4 0x0 ✅; P5 base of task A stack ✅,
+  name s_task_a_stack not g_ (¾); P6 ❌ predicted the Phase 5 program (Task B, 500,000 iterations).
+  TOP weak point: hex right, bit-by-bit decode still slips → write the 8 bits under the hex before
+  reading fields. Lesson: predict from the code being flashed. Bench Map v239.
+### Log catch-up — session 26, 2026-11-19 16:44
+git log: e1679d0 (HEAD = origin/main) "6.1d: FreeRTOS V11.2.0 ARM_CM33_NTZ (Secure-only) builds on
+  own startup + .ld, 0 warnings", b49d077, 553febc; status clean → the 14 blocks issued 12:13–16:41
+  ("6.0 graded" … "6.1e PASS — 6.1 CLOSED") had not been appended; appended together here, in issue
+  order. Expected heading count after this append: 326 + 15 = 341.
