@@ -4652,3 +4652,22 @@ Commits: 386e8c0, c00f67a, c82240a, 2a202a9, ff03ce0, 50026a6, 2f819ae, Phase-5-
 Tutor corrections: reconstructed session-24 end blocks withdrawn for the user's original; GDB list
   used delete 2 / condition 1 (temporary bp = #1); "^### 5.3" expected counts 9 / 14 (actual 10 /
   15). Bench Map v219 → v228.
+
+### Session 26 intake (2026-11-19 09:03)
+learning_log.md 4,654 lines, LF only, newline at EOF, md5 ebbdacb5aa175443f0f6213fc3dff234; 321 "###"
+  headings (319 + the user-appended "Session 25 end" 4633 / "Session 25 summary" 4639), all at column 1,
+  no duplicates; "^### Phase 5 closed" 1 (4616), "^### Session 25" 3 (intake 4211, end, summary) → no
+  end-block file needed. Sources = image 5.3 line map: .c 348 lines CRLF md5 c1e6e34495cd78f72295b1687ac21814
+  (first record), .S 170 lines CRLF md5 91834c1056b2a0a9431820255b92ab73 ✅, .ld 45 newlines CRLF no EOF
+  newline md5 83f60f7ff0b472dccfacf54545d00f1c ✅. core_cm33_sdk26.6.h read in full (3,246 lines; read-only,
+  not in the build); EXC_RETURN bit comments at lines 2302–2308 (S 6 "stack used to push registers:
+  0=Non-secure 1=Secure", DCRS 5 "0=skipped 1=saved", ES 0 "security state exception was taken to")
+  → drill material for the session-25 TOP weak point. Bench Map v228 read (current block, roadmap,
+  scores, open questions, footer; older history entries skimmed) → v229 (intake, Phase 4/5 rail
+  markers done, 5.3/test rows tidied, Phase 6 proposed steps). Upstream FreeRTOS-Kernel V11.1.0+
+  ARM_CM33_NTZ/non_secure checked by the tutor: handlers named SVC_Handler / PendSV_Handler /
+  SysTick_Handler (portasm.c / port.c) → clash with our .S PendSV_Handler and .c SysTick_Handler /
+  SVC_Handler; port.c uses raw-address macros (portNVIC_SHPR3_REG 0xe000ed20, SysTick 0xe000e010–18,
+  VTOR 0xe000ed08) → session-9 note confirmed upstream, SDK 26.06 copy still to check (6.0).
+  Asked: git log --oneline -3 + git status --short (owed: "log: session 25 end + summary"),
+  Breakpoints view empty?, any debug session left? Phase 6 step list proposed; waiting for "go".
