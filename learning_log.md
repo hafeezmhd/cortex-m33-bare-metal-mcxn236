@@ -4942,3 +4942,33 @@ Session 26 (2026-11-19 09:00 → 2026-11-20 17:25). Intake clean (321 headings, 
   D5 accepted without checking the link line; a placeholder in a runnable command; upstream line
   numbers before the SDK ones. Commits 553febc, b49d077, e1679d0, f02424f, 31d7b5a. Bench Map v228 →
   v244.
+### Session 27 intake (2026-11-20 17:45)
+learning_log.md 4,944 lines, LF only (0 CR), newline at EOF; 351 "###" headings, all at column 1
+  (0 indented), no duplicates; "^### Session 26 summary" 1 (4928), "^### Session 26" 3 (intake 4656,
+  end 4920, summary 4928) → session-26 end blocks already appended, no block file needed. Sources =
+  image 6.2 line map, md5 all match: .c 347 lines CRLF 1fde6faa8ee9e8f71414ea47465b4135 (sha256
+  ce5e825b…); .S 150 CRLF 80597389d9e13023d4ce6099ece1e29c (4a5586a2…); .ld 45 newlines CRLF no EOF
+  newline 83f60f7ff0b472dccfacf54545d00f1c; FreeRTOSConfig.h 84 LF 7d9e1b3f81ece5b8cca051d0d1811667
+  (5e810ec2…). Spot lines (grep): .c TASK_B_PRIO 104 = 2u, task_a 243, xQueueSend 252, task_b 259,
+  xQueueReceive 265, main 279, CCR 317, "Scheduler start" 342, vTaskStartScheduler 343; .S SVC 34,
+  PendSV 37, SysTick 38, Reset_Handler 88, bl main 115, .ltorg 117, Default_Handler 123, weak
+  SysTick 127–128, SVCall 149–150. core_cm33_sdk26.6.h read in full (3,246 lines; DWT CYCCNT 1136,
+  DWT_BASE 2040, EXC_RETURN 2303–2308). FreeRTOS-Kernel tag V11.2.0 (0adc196) fetched by the tutor:
+  portasm.c 235/252/398/508, port.c 308/1054/1768/1818–1819, tasks.c 4725/5109/6429 = the SDK lines.
+  Bench Map v244 read (current block, Phase 6 roadmap, trail, footer; older history skimmed) → v245.
+  Asked: git log --oneline -3 + git status --short (owed: session-26 end blocks commit), Breakpoints
+  view empty?, debug session left?, image in flash (reflash the committed 31d7b5a build before 6.3).
+### 6.3 issued — session 27, 2026-11-20 17:45 (paper, lighter format; GDB only, no code change)
+Image = committed 6.2 (31d7b5a, TASK_B_PRIO 2u), reflashed, no source edit. Tutor read V11.2.0:
+  non-MPU PendSV portasm.c 398–466 (mrs r0,psp; tst lr,#0x10 / vstmdbeq {s16-s31}; mrs r2,psplim;
+  mov r3,lr; stmdb r0!,{r2-r11}; str r0 → pxCurrentTCB top of stack; msr basepri <- 0x20 + dsb +
+  isb; bl vTaskSwitchContext; msr basepri <- 0; ldmia r0!,{r2-r11}; vldmiaeq; msr psplim; msr psp;
+  bx r3), vPortYield port.c 1018, SysTick_Handler 1054, vTaskSwitchContext tasks.c 5109, task
+  selection tasks.c 194 / 235 + portmacrocommon.h 528–534, stack fill tasks.c 120/130/1843–1848,
+  uxTaskGetStackHighWaterMark 6429 / prvTaskCheckFreeStackSpace 6364. Read-only paste owed: nm for
+  PendSV_Handler, vTaskSwitchContext, vPortYield, vClearInterruptMask, pxCurrentTCB, s_task_a/b_tcb,
+  s_task_a/b_stack, s_idle_tcb, s_idle_stack, uxTaskGetStackHighWaterMark; .su lines for the A, B
+  and idle call chains. User composes Q1 CYCCNT method (halts H0–H4, comparable with 5.3a's 70),
+  Q2 saved words per switch, Q3 what FreeRTOS adds (BASEPRI window, PSPLIM, per-task EXC_RETURN,
+  which task selection), Q4 high-water method + worst case per task. Then one locked prediction
+  message R1–R8. Bench Map v245.
