@@ -4917,3 +4917,28 @@ Suspend halted in prvIdleTask (tasks.c 5850, pc 0x1804). g_cnt_a 2313 = g_cnt_b 
   gets the CPU at the next tick, A's spin cannot hold it; PC location near xTaskGetTickCount ½);
   P5 ½ (503 right for run 2, run 1 = 504). TASK_B_PRIO restored to 2u (sha256 must equal
   CE5E825B…87CE15F). 6.2 CLOSED.
+### Session 26 end — 2026-11-20 17:25
+State: HEAD = origin/main = 31d7b5a ("6.2: two tasks + static queue; event switch (dt 0) vs tick
+  switch (dt 1) measured"), clean at 14:42. Source = image 6.2 with TASK_B_PRIO 2u (.c sha256
+  ce5e825b…87ce15f, 347 lines; .S 4a5586a2…a878e2, 150 lines; .ld unchanged; FreeRTOSConfig.h
+  5e810ec2…03df2c, 84 lines; source\freertos\ 29 files V11.2.0). Flash may still hold the run-2
+  image (TASK_B_PRIO 1u) → reflash the committed build before 6.3. Phase 6: 6.0, 6.1, 6.2 CLOSED;
+  next 6.3 (FreeRTOS switch cost in CYCCNT vs 5.3a's 70 cycles, saved context 10 words vs 8, stack
+  high-water marks vs .su). Continuation prompt for session 27 issued. Bench Map v244.
+### Session 26 summary
+Session 26 (2026-11-19 09:00 → 2026-11-20 17:25). Intake clean (321 headings, sources matched, .c md5
+  recorded). Phase 6 approved and planned. 6.0 paper: SDK V11.2.0 checks (raw addresses → session-9
+  note confirmed), D1–D7 decided — S / kernel+port files / static / remove our PendSV, SysTick, SVC /
+  N (own memset/memcpy, -nostdlib kept) / SECURE_ONLY 1, TZ 0, MPU 0, FPU 1 / MAX_SYSCALL 0x20;
+  5¾/10 → rework 8½/10. 6.1: kernel copied (29/29 SHA-256), include paths, edits trial-built by the
+  tutor, build 0/0, first FreeRTOS task on hardware (MSP reclaim 0x2000_FFB8 → 0x2001_0000; svc LR
+  0xFFFF_FFE9, 104 B frame; task_a CONTROL 0x2, BASEPRI 0, PSPLIM = stack base); 5¼/7. 6.2: two
+  tasks + static queue; B prio 2 → dt 0, A stopped at vClearInterruptMask (deferred PendSV), period
+  504; B prio 1 → dt 1, A stopped in its spin loop by the tick, period 503; 3½/5 — first fully
+  correct live EXC_RETURN decode (0xFFFF_FFFD, bits written out). Weak points: DCRS/FPCA slips in
+  6.1e, predictions skipped once / made from the old program, citation markers and old-file line
+  numbers in 6.0, equal-priority time slicing. Process lessons: append + commit log blocks as
+  issued; single Resume (no typed continue); clear the terminal before a run. Tutor corrections:
+  D5 accepted without checking the link line; a placeholder in a runnable command; upstream line
+  numbers before the SDK ones. Commits 553febc, b49d077, e1679d0, f02424f, 31d7b5a. Bench Map v228 →
+  v244.
