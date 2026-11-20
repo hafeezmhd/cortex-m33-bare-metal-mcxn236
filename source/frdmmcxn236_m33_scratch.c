@@ -27,12 +27,15 @@
 5.3: SysTick pends PendSV every SLICE_TICKS ticks; task A LED, task B UART
 6.1: FreeRTOS V11.2.0 ARM_CM33_NTZ port (SECURE_ONLY) on our startup/.ld; one LED task.
      Phase 5 switcher, SysTick_Handler, SVC_Handler removed (port owns slots 11/14/15).
+6.2: queue A -> B. A sends its count, then spins 3 ticks; B blocks on the queue and prints.
+     Run 1 TASK_B_PRIO 2 (above A), run 2 TASK_B_PRIO 1 (equal): event switch vs tick switch.
 */
 
 #include <stdint.h>
 #include <stddef.h>      /* size_t for memset/memcpy (6.0 D5 = N) */
 #include "FreeRTOS.h"
 #include "task.h"
+#include "queue.h"
 
 #define REG32(addr) (*(volatile uint32_t *)(addr))
 #define REG8(addr)  (*(volatile uint8_t *)(addr))
@@ -96,6 +99,11 @@
 #define SCB_SHCSR_MEMFAULTENA_Msk (1u << 16) // (D1.2.233 p.1838)
 #define SCB_CFSR_MMFARVALID_Msk	(1u << 7)  	// (D1.2.167 p.1740, D1.2.11 p.1477)
 #define TASK_A_STACK_WORDS 		256u        /* 6.1: 1 KB, static in .bss; confirm against .su + high-water mark (6.3) */
+#define TASK_B_STACK_WORDS 		256u        /* 6.2: 1 KB; uart4_puts chain is shallow (.su) */
+#define TASK_A_PRIO 			1u          /* 6.2: producer */
+#define TASK_B_PRIO 			2u          /* 6.2: run 1 = 2 (above A); run 2 = 1 (equal to A) */
+#define Q_LEN 					4u          /* 6.2: queue depth, items of uint32_t */
+#define A_SPIN_TICKS 			3u          /* 6.2: A keeps the CPU this many ticks after each send */
 
 volatile uint32_t g_lpflexcomm4_irq_count;   /* .bss (zeroed by Reset_Handler .S lines 100–107); written by the IRQ 39 handler, read in main from 2.5c/d onward → volatile: main's reads must not be kept in a register. */
 
@@ -109,12 +117,21 @@ volatile uint32_t g_mmfar = 0;
 volatile uint8_t g_mmfar_valid = 0;
 
 volatile uint32_t g_cnt_a;                 /* .bss; task_a loop count */
+volatile uint32_t g_cnt_b;                 /* .bss; 6.2: items task_b received */
+volatile uint32_t g_last_val;              /* .bss; 6.2: last item task_b received */
+volatile TickType_t g_send_tick;           /* .bss; 6.2: tick when A sent */
+volatile TickType_t g_recv_tick;           /* .bss; 6.2: tick when B got it */
 
 volatile uint32_t g_assert_line;           /* 6.1: set by configASSERT (FreeRTOSConfig.h) */
 const char * volatile g_assert_file;       /* 6.1: set by configASSERT */
 
 static StaticTask_t s_task_a_tcb;                       /* 6.1: task A TCB, .bss (D3 = T) */
 static StackType_t  s_task_a_stack[TASK_A_STACK_WORDS]; /* 6.1: task A stack, .bss */
+static StaticTask_t s_task_b_tcb;                       /* 6.2: task B TCB, .bss */
+static StackType_t  s_task_b_stack[TASK_B_STACK_WORDS]; /* 6.2: task B stack, .bss */
+static StaticQueue_t s_q_struct;                        /* 6.2: queue control block, .bss */
+static uint8_t      s_q_storage[Q_LEN * sizeof(uint32_t)]; /* 6.2: queue item storage, .bss */
+static QueueHandle_t s_q;                               /* 6.2: handle (= &s_q_struct) */
 static StaticTask_t s_idle_tcb;                         /* 6.1: idle task TCB, .bss */
 static StackType_t  s_idle_stack[configMINIMAL_STACK_SIZE]; /* 6.1: idle task stack, .bss */
 
@@ -163,6 +180,14 @@ static void uart4_puts(const char *s)
         uart4_putc(*s);      /* emit the current character   */
         s++;                 /* advance to the next one      */
     }
+}
+
+static void uart4_put_u32(uint32_t v)   /* 6.2: decimal, no printf (-nostdlib) */
+{
+	char buf[11];
+	uint32_t i = 0u;
+	do { buf[i++] = (char)('0' + (v % 10u)); v /= 10u; } while (v != 0u);
+	while (i != 0u) { uart4_putc(buf[--i]); }
 }
 
 /* 2.5a: IRQ39, vector 55 (Table 15 p.33).
@@ -215,14 +240,39 @@ void MemManage_Handler(void)
 	{}
 }
 
-static void task_a(void *pv)                /* 6.1: the one task: LED every 500 ms */
+static void task_a(void *pv)                /* 6.1: LED every 500 ms; 6.2: producer */
 {
 	(void)pv;
 	for (;;)
 	{
 		g_cnt_a++;
 		REG32(GPIO4_PTOR) = (1u << 18);        /* toggle red LED P4_18 */
+		uint32_t v = g_cnt_a;
+		g_send_tick = xTaskGetTickCount();
+		(void)xQueueSend(s_q, &v, 0u);         /* copy 4 B into the queue (memcpy); may switch to B here */
+		TickType_t t0 = xTaskGetTickCount();
+		while ((xTaskGetTickCount() - t0) < A_SPIN_TICKS) { }  /* stay Ready + running, no block */
 		vTaskDelay(pdMS_TO_TICKS(500u));        /* block 500 ticks -> idle runs */
+	}
+}
+
+static void task_b(void *pv)                /* 6.2: consumer: block on the queue, print */
+{
+	(void)pv;
+	for (;;)
+	{
+		uint32_t v;
+		if (xQueueReceive(s_q, &v, portMAX_DELAY) == pdPASS)
+		{
+			g_recv_tick = xTaskGetTickCount();
+			g_cnt_b++;
+			g_last_val = v;
+			uart4_puts("B got ");
+			uart4_put_u32(v);
+			uart4_puts(" dt=");
+			uart4_put_u32((uint32_t)(g_recv_tick - g_send_tick));
+			uart4_puts("\r\n");
+		}
 	}
 }
 
@@ -283,9 +333,12 @@ int main(void)
 	} else {
 		uart4_puts("IRQ 39 not taken yet\r\n");
 	}
-	/* 6.1: one static task at priority 1 (idle = 0), then hand the CPU to FreeRTOS */
-	(void)xTaskCreateStatic(task_a, "TaskA", TASK_A_STACK_WORDS, NULL, 1u,
+	/* 6.2: static queue first, then A (prio 1) and B (TASK_B_PRIO), then hand the CPU to FreeRTOS */
+	s_q = xQueueCreateStatic(Q_LEN, sizeof(uint32_t), s_q_storage, &s_q_struct);
+	(void)xTaskCreateStatic(task_a, "TaskA", TASK_A_STACK_WORDS, NULL, TASK_A_PRIO,
 	                        s_task_a_stack, &s_task_a_tcb);
+	(void)xTaskCreateStatic(task_b, "TaskB", TASK_B_STACK_WORDS, NULL, TASK_B_PRIO,
+	                        s_task_b_stack, &s_task_b_tcb);
 	uart4_puts("Scheduler start\r\n");
 	vTaskStartScheduler();                   /* does not return: MSP reset, svc 102, first task */
 

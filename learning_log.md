@@ -4849,3 +4849,71 @@ git log: e1679d0 (HEAD = origin/main) "6.1d: FreeRTOS V11.2.0 ARM_CM33_NTZ (Secu
   own startup + .ld, 0 warnings", b49d077, 553febc; status clean → the 14 blocks issued 12:13–16:41
   ("6.0 graded" … "6.1e PASS — 6.1 CLOSED") had not been appended; appended together here, in issue
   order. Expected heading count after this append: 326 + 15 = 341.
+### Log caught up + 6.2 issued — session 26, 2026-11-19 16:50
+Catch-up appended (14 blocks 12:13–16:41 + catch-up block): 341 headings, no duplicates, +143 / −0
+  (= file 143 lines), commit f02424f pushed. 6.2 issued: frdmmcxn236_m33_scratch.c 347 lines sha256
+  ce5e825b…87ce15f (from c640bdc9…, +59 diff lines): queue.h; TASK_B_STACK_WORDS 256, TASK_A_PRIO 1,
+  TASK_B_PRIO 2, Q_LEN 4, A_SPIN_TICKS 3; g_cnt_b, g_last_val, g_send_tick, g_recv_tick; static TCB +
+  stack B, StaticQueue_t + 16 B storage; uart4_put_u32; task_a sends count (xQueueSend, 0 wait) then
+  spins 3 ticks then vTaskDelay(500 ms); task_b xQueueReceive(portMAX_DELAY) → "B got N dt=T"; main
+  xQueueCreateStatic + create A + B. Tutor trial build: 0 warnings, FLASH 9116 B, RAMB 3144 B, memcpy
+  linked (queue copy), .su task_a 24, task_b 24, uart4_put_u32 32, xQueueGenericSend 48,
+  xQueueReceive 48, prvCopyDataToQueue 32, xTaskRemoveFromEventList 40. User asked why the .c was
+  changed → tutor explained each change (lighter format: tutor drafts routine code) and offered A
+  (keep tutor file) / B (write it himself); user installed the file (option A).
+### 6.2 predictions — session 26, 2026-11-20 11:33 (before build)
+File installed: frdmmcxn236_m33_scratch.c sha256 CE5E825B…87CE15F, 347 lines ✅. P1 run 1 (B prio 2):
+  "B got 1 dt=0" — B unblocked by xQueueSend, switch in the same tick. P2: preempted in the
+  xQueueSend path / callee; switch requested by SCB_ICSR PENDSVSET (1u << 28 @ 0xE000ED04). P3: A's
+  saved EXC_RETURN 0xFFFF_FFFD, low byte 1111_1101 → S 1, DCRS 1, FType 1, Mode 1, SPSEL 1, b1 0, ES 1.
+  P4 run 2 (B prio 1): dt=3, A's PC in xTaskGetTickCount (A runs the whole 3-tick spin, slice switch
+  after). P5: LED toggle every 503 ms (3-tick spin + 500-tick delay). Recorded verbatim; graded after
+  both runs.
+### 6.2 run 1 build — session 26, 2026-11-20 11:34
+Build (TASK_B_PRIO 2): 0 errors, 0 warnings; FLASH 9028 B, RAMB 3136 B; size text 9018, data 8, bss
+  3128 (+1200 vs 6.1 = B stack 1024 + B TCB + StaticQueue_t + 16 B storage). Map: xQueueGenericSend
+  0x7c0, memcpy 0x2244 (linked now — queue copy; gc'd in 6.1). task_b static → no global map line
+  (expected).
+### 6.2 run 1 — A's saved context + missing B output — session 26, 2026-11-20 11:47
+BP task_b .c 267 (g_recv_tick line): g_send_tick 0x0, g_cnt_a 1. s_task_a_tcb.pxDummy1 0x200084b8
+  (= s_task_a_stack+864): +0 PSPLIM 0x20008158 (= stack base), +4 EXC_RETURN 0xFFFFFFFD (P3 ✅),
+  R4–R11 0x04040404/05/06/R7 0x20008500/08/09/10/11 (port initial fill, untouched except R7 = FP),
+  frame R0 0, R1 1, R2 0x20008000, R3 0, R12 0x12121212 (fill), LR 0x215, PC 0x1e4e =
+  vClearInterruptMask+8, xPSR 0x61000000. → PendSV pended inside xQueueGenericSend's critical
+  section (BASEPRI 0x20 > PendSV 0xE0 masked) is taken the instant vClearInterruptMask writes
+  BASEPRI 0. Free run after delete/continue: LED 10 blinks/10 s; terminal showed only "Hello",
+  "IRQ 39 taken", "Scheduler start" — NO "B got" lines (terminal possibly not cleared since 6.1).
+### 6.2 run 1 — Suspend timeout — session 26, 2026-11-20 11:56
+Suspend after the free run → "Suspend operation timeout" (debugger could not halt the core).
+  Console had shown "continue" echoed twice → possible IDE/GDB run-state mismatch. Next: Terminate,
+  clear terminal, fresh Debug, no breakpoints, single continue, 10 s observe, one Suspend.
+### 6.2 run 1 — B output confirmed — session 26, 2026-11-20 12:28
+Fresh debug, no breakpoints, single Resume (Resume + typed "continue" = double continue → "Cannot
+  execute this command while the selected thread is running"; earlier doubled continue likely caused
+  the Suspend timeout). Cleared terminal: "B got 2203 dt=0" … "B got 2218 dt=0" — every line dt=0
+  (B prio 2 runs in the same tick as A's send → event switch). LED 10 blinks/10 s. Earlier missing B
+  lines = terminal not showing live output. Suspend → Eclipse "Scalability" preferences dialog
+  (editor opened tasks.c > 5000 lines) — IDE notice, not a target error.
+### 6.2 run 1 measured — session 26, 2026-11-20 12:30
+Suspend halted in prvIdleTask (tasks.c 5850, pc 0x1804). g_cnt_a 2313 = g_cnt_b 2313 (no loss);
+  g_send_tick = g_recv_tick = 1,165,248 (dt 0); g_assert_line 0. A's saved LR 0x215 =
+  vPortExitCritical+57, PC 0x1e4e = vClearInterruptMask+8 → chain xQueueGenericSend → taskEXIT_CRITICAL
+  → vPortExitCritical → vClearInterruptMask; PendSV pended under BASEPRI 0x20, taken when BASEPRI = 0.
+  Loop period 1,165,248 / 2,312 = 504.0 ticks exactly (not 503): B (prio 2) prints ~17 chars (≈1.5 ms,
+  baud unconfirmed) before A reads t0 → spin starts at T+1 → 1 + 3 + 500 = 504. Higher-priority run
+  time stretches the lower-priority loop. GDB bt "corrupt stack" = no RTOS awareness, ignored.
+### 6.2 run 2 measured — 6.2 CLOSED — session 26, 2026-11-20 14:36
+.c line 104 TASK_B_PRIO 1u (Select-String confirmed); build 0 errors / 0 warnings, sizes identical to
+  run 1 (FLASH 9028, RAMB 3136). BP .c 267: g_send_tick 0, g_cnt_a 1; s_task_a_tcb.pxDummy1
+  0x200084f0: PSPLIM 0x20008158, EXC_RETURN 0xFFFFFFFD, R4–R11 fill (R7 0x20008538), R0 0, R1 2, R2 0,
+  R3 0, R12 0x12121212, LR 0x1b5f = task_a+71, PC 0x1b5e = task_a+70, xPSR 0x01000000 → A preempted in
+  its own spin loop just after xTaskGetTickCount returned (LR = PC|1); send unblocked B (equal prio)
+  without a yield, next SysTick time-slices to B. Terminal: "B got 6 dt=1" … "B got 35 dt=1" — every
+  line dt=1. Suspend in prvIdleTask: g_cnt_a 35 = g_cnt_b 35, g_send_tick 17,102 → period 17,102 / 34
+  = 503.0 ticks exactly (B no longer runs before A reads t0). Run 1 = event switch (dt 0, period 504),
+  run 2 = tick switch (dt 1, period 503). Predictions 3½/5: P1 ✅ 1; P2 ¾ (ICSR PENDSVSET right;
+  exact point vClearInterruptMask); P3 ✅ 1 (0xFFFFFFFD, 8 bits written out — first fully correct
+  live EXC_RETURN decode); P4 ¼ (dt 3 ✗ — with configUSE_TIME_SLICING 1 an equal-priority Ready task
+  gets the CPU at the next tick, A's spin cannot hold it; PC location near xTaskGetTickCount ½);
+  P5 ½ (503 right for run 2, run 1 = 504). TASK_B_PRIO restored to 2u (sha256 must equal
+  CE5E825B…87CE15F). 6.2 CLOSED.
