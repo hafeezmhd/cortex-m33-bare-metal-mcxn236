@@ -4972,3 +4972,49 @@ Image = committed 6.2 (31d7b5a, TASK_B_PRIO 2u), reflashed, no source edit. Tuto
   Q2 saved words per switch, Q3 what FreeRTOS adds (BASEPRI window, PSPLIM, per-task EXC_RETURN,
   which task selection), Q4 high-water method + worst case per task. Then one locked prediction
   message R1–R8. Bench Map v245.
+### 6.3 run — tutor errors + console issues — session 27, 2026-11-22 22:45
+Paper graded (2026-11-21/22): Q1a ✅, Q1b offset ✅ (+0x40 FType 1, +0x80 FType 0) but H2 reason
+  backwards (A DOES run vPortYield before H1: queue.c 1048 inside the 964–1070 critical section ->
+  PENDSVSET pended at BASEPRI 0x20, taken at vClearInterruptMask), Q1c ¾ (no tick switch-out of A in
+  run 1), Q2 ✅ (72 B vs Phase 5 64 B, PSP), Q3 ¾, Q4a ✅ (pxPortInitialiseStack call = tasks.c 1997,
+  not 1951), Q4b ¾, Q4c ✅ after one redo (A 140+72 = 212, B 144+72 = 216, idle 92). Tutor note:
+  several paper lines read as another AI's output from partial files; user asked to compose himself.
+Tutor errors: (1) GDB list used <N0>/<T> placeholders typed literally -> "bad breakpoint number",
+  syntax error; fixed with $bpnum / convenience variables ($N0, $T, $U, $pcB, $pcA, $c1–$c4).
+  (2) Attempt 1: set $T from *(unsigned *)&s_task_b_tcb read 0 -> x/wx 0x40 = vector slot 16
+  (Default_Handler|1 = 0x1E29) -> break *0x1E29 (odd, startup_m33.S:124) -> "Target error from
+  Remove break/watch", "program is no longer writable" -> Terminate. No guard on $T before break
+  (tutor). Cause of the 0 read OPEN (same read via 0x20008558 gave 0x20008900 in attempt 2).
+  Rule: set H2/H4 from a value checked by eye (in stack range, even, inside .text).
+Console: pasted multi-line if blocks not closed by the IDE console (H4 lost in attempt 2, "end>
+  > >"); while loops worked for A and B, stalled for idle; Memory Browser then all ???? (target not
+  readable) -> Terminate + relaunch, idle read with one-line x/128wx. Rule: no if blocks in the
+  console; check by eye, one command per line.
+### 6.3 measured + graded — 6.3 CLOSED — session 27, 2026-11-22 22:45
+Image 31d7b5a (TASK_B_PRIO 2u). DEMCR 0x011007F0 (TRCENA set), DWT_CTRL 0x40000001 (CYCCNTENA).
+  H0 bp .c 252 + ignore 5 -> g_cnt_a 6 (all three launches). H1 bp 0x574 (A->B): pc 0x574, lr
+  0xFFFFFFFD, basepri_s 0, psp_s 0x200084E0, CYCCNT 0x0738C65B; B: pxTopOfStack 0x20008900 (stack
+  +868), PSPLIM 0x20008598, EXC_RETURN 0xFFFFFFFD, saved PC 0x1A0 = vPortYield port.c 1025 (dsb).
+  H2 bp 0x1A0: pc 0x1A0, CYCCNT 0x0738C755 -> Δ A->B = 250 cycles; basepri_s 0, psp_s 0x2000894C
+  (= base + 944 = T + 40 + 32 + 4 pad), pxCurrentTCB 0x20008558 (B). Re-run for B->A (bp .c 270 in
+  B, then 0x574): H3 pxCurrentTCB 0x20008558, CYCCNT 0x07399684; A: pxTopOfStack 0x200084B8 (stack
+  +864, same as attempt 1), PSPLIM 0x20008158, EXC_RETURN 0xFFFFFFFD, saved PC 0x1E4E =
+  vClearInterruptMask+8 (isb). H4 bp 0x1E4E: Δ B->A = 252 cycles.
+Stack scans (0xA5A5A5A5 words from the base): A 216 untouched -> 160 B used (lowest touched =
+  0x200084B8 = A's saved pxTopOfStack); B 217 -> 156 B (lowest = 0x20008900 = B's saved
+  pxTopOfStack); idle (x/128wx, third launch) 103 -> 100 B: +412 0x20008A38 / +416 0xFFFFFFFD (stale
+  context 8 B lower), live context +420 (PSPLIM 0x20008A38, EXC_RETURN 0xFFFFFFFD, R4–R11 initial
+  fill 0x04040404… with R7 0x20008C28), hw frame +460 (R0 0, … LR 0x1805, PC 0x1806, xPSR 0x61000000),
+  top word +508 still 0xA5 (never written, counted as used by a from-base scan).
+Findings: (1) switch cost 250/252 ≈ 3.6 × 5.3a's 70 — the extra ≈ 180 cycles are the -O0 C call
+  vTaskSwitchContext (0xC4 B) + BASEPRI raise/clear with dsb/isb; asm saves only 2 more words (72 vs
+  64 B). (2) B's PendSV taken after the ICSR store, before dsb (PC 0x1A0); A's after dsb, before isb
+  (0x1E4E) — two take points for a pended PendSV. (3) deepest stack point = the switch-out instant
+  (saved pxTopOfStack), not the deepest .su chain. (4) .su + 72 is not a safe bound: idle 100 > 92
+  (alignment pad up to 4 B + top-word slack). (5) PSPLIM reads back 8-aligned: B 0x20008598 and idle
+  0x20008A38 = base − 4 (bases 0x…9C / 0x…3C not 8-aligned; TCB 0x44), A 0x20008158 = base; the limit
+  sits on the last word of the task's own TCB — confirm PSPLIM bits [2:0] RES0 in DDI0553 (page owed).
+Predictions 5½/8: R1 ✅ (lr 0xFFFFFFFD, basepri 0); R2 ✅ (0xFFFFFFFD, vPortYield); R3 ½ (134 vs 250,
+  direction right); R4 ½ (134 vs 252; vClearInterruptMask ✅); R5 ✅ (basepri 0, base + 944 — value
+  exact, reasoning missed the 4 B pad); R6 ✗ (204 vs 160); R7 ½ (152 vs 156, the pad); R8 ✅ (100).
+  Margins free: A 864 / 1024, B 868 / 1024, idle 412 / 512. Open: &s_task_b_tcb read 0 (attempt 1).
