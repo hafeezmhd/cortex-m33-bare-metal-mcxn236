@@ -5013,7 +5013,7 @@ Findings: (1) switch cost 250/252 ≈ 3.6 × 5.3a's 70 — the extra ≈ 180 cyc
   (saved pxTopOfStack), not the deepest .su chain. (4) .su + 72 is not a safe bound: idle 100 > 92
   (alignment pad up to 4 B + top-word slack). (5) PSPLIM reads back 8-aligned: B 0x20008598 and idle
   0x20008A38 = base − 4 (bases 0x…9C / 0x…3C not 8-aligned; TCB 0x44), A 0x20008158 = base; the limit
-  sits on the last word of the task's own TCB — confirm PSPLIM bits [2:0] RES0 in DDI0553 (page owed).
+  sits on the last word of the task's own TCB — DDI0553 D1.2.218 p.1814: LIMIT bits [31:3], bits [2:0] RES0.
 Predictions 5½/8: R1 ✅ (lr 0xFFFFFFFD, basepri 0); R2 ✅ (0xFFFFFFFD, vPortYield); R3 ½ (134 vs 250,
   direction right); R4 ½ (134 vs 252; vClearInterruptMask ✅); R5 ✅ (basepri 0, base + 944 — value
   exact, reasoning missed the 4 B pad); R6 ✗ (204 vs 160); R7 ½ (152 vs 156, the pad); R8 ✅ (100).
