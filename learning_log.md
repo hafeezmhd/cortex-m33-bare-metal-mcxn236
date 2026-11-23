@@ -5047,3 +5047,18 @@ Field Guide (doc 8724fa96, rev 53 -> 64) heading -> "M33 Field Guide: Phases 0�
   &s_task_b_tcb read 0, 180-cycle split, idle live-context read, MIT LICENSE).
 PHASE 6 CLOSED (6.0 5¾ -> rework 8½/10, 6.1 5¼/7, 6.2 3½/5, 6.3 5½/8, self-test 2.45/3; 6.4
   skipped). Board: image 6.2 (31d7b5a) in flash, no breakpoints. Bench Map v249.
+### Phase 6 self-test issued — session 27, 2026-11-23 11:10 (paper, open-book, 3 Qs)
+Decision (user, 11:02): 6.4 FP task SKIPPED (optional; FType 0 path of PendSV not run on hardware);
+  Phase 6 wraps with self-test + Field Guide P6. All data from 6.3 (image 31d7b5a) + portasm.c
+  398–466. Q1 B's saved context (attempt 1 H1, T 0x20008900, psp_s at H2 0x2000894C): a word table
+  T … 0x20008948 (address, register, value if measured, writer: stmdb or hardware) + the xPSR bit that
+  explains the +4 + rule cited; b EXC_RETURN 0xFFFFFFFD bits 0–7 name + meaning (weak point 1 from
+  Phase 5); c NEW: B with one FP instruction before blocking — EXC_RETURN, words by hardware / by
+  PendSV, new T, saved-PC offset. Q2 PendSV A→B walk from psp_s 0x200084E0, lr 0xFFFFFFFD: r0–r3,
+  PSP, PSPLIM, BASEPRI after each instruction (skipped ones named) to psp after bx r3; b BASEPRI 0x20
+  window: SysTick / IRQ 39 preempt?, stack + EXC_RETURN if IRQ 39 does. Q3 idle dump (third launch):
+  a label +412 … +508 (register, writer, stale / live) + one GDB read that proves which context is
+  live; b decode xPSR 0x61000000, explain the stale pair 8 B lower from .su + SPREALIGN, sum to 100 B;
+  c PSPLIM 0x20008A38: lowest legal PSP, whose word is at 0x20008A38, exception + CFSR bit + handler
+  if PSP goes lower. Rules: every value sourced, field names + meanings, no symbolic values.
+  Appended late (after PHASE 6 CLOSED): the block file was never downloaded.
