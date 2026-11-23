@@ -5062,3 +5062,23 @@ Decision (user, 11:02): 6.4 FP task SKIPPED (optional; FType 0 path of PendSV no
   c PSPLIM 0x20008A38: lowest legal PSP, whose word is at 0x20008A38, exception + CFSR bit + handler
   if PSP goes lower. Rules: every value sourced, field names + meanings, no symbolic values.
   Appended late (after PHASE 6 CLOSED): the block file was never downloaded.
+### Session 27 end (2026-11-23 12:35)
+Session ended at the user's request (fresh session next with a continuation prompt). State: image 6.2
+  (31d7b5a, TASK_B_PRIO 2u) in flash; last launch (2026-11-22 22:40) ended halted at .c 252 after
+  x/128wx — debug session state to confirm at intake. Log 358 headings before these blocks, LF only,
+  HEAD = origin/main = 679b9b6. PHASE 6 CLOSED; 6.4 skipped. Field Guide doc 8724fa96 rev 64 (Phases
+  0–6; card title still "Phases 0–2" — rename on claude.ai). Bench Map v250. Next: session-28 intake,
+  then the user's choice — packaging early (READMEs, drill bank, resume bullets, MIT LICENSE,
+  workspace_loc paths) or Phase 6 open items (6.4 FP task, &s_task_b_tcb read 0, 180-cycle split).
+  Continuation prompt: continuation_prompt_session28.txt.
+### Session 27 summary (2026-11-20 17:37 → 2026-11-23 12:35)
+Intake: log 351 headings, sources matched; tutor read core_cm33 header in full, fetched FreeRTOS-Kernel
+  V11.2.0 (lines = SDK copy). 6.3 (5½/8): paper Q1–Q4 with redos (H2 reason backwards; Q4c chains A 212
+  / B 216 / idle 92 B); run with tutor errors (literal placeholders, unchecked read -> bp at 0x1E29 ->
+  target error) and console issues (if block lost H4, while loop stalled); measured switch 250 / 252
+  cycles vs 70, stack used A 160 / B 156 / idle 100 B, PSPLIM 8-aligned (D1.2.218 p.1814, found by
+  user). 6.4 skipped. Phase 6 self-test 2.45/3 (EXC_RETURN meanings fixed; symbolic values, unread
+  memory labels, stale line citations). Field Guide Phases 0–6 (tutor corrected its port.c 1618 ->
+  1640). Paper and self-test answers twice carried another tool's marks (flagged). Self-test-issued
+  block appended late by heredoc (file never downloaded). PHASE 6 CLOSED. Commits ae65605 … 679b9b6.
+  Bench Map v244 -> v250.
