@@ -5082,3 +5082,48 @@ Intake: log 351 headings, sources matched; tutor read core_cm33 header in full, 
   1640). Paper and self-test answers twice carried another tool's marks (flagged). Self-test-issued
   block appended late by heredoc (file never downloaded). PHASE 6 CLOSED. Commits ae65605 … 679b9b6.
   Bench Map v244 -> v250.
+
+### Session 28 intake (2026-11-23 12:40)
+learning_log.md 5,084 lines, LF only (0 CR), newline at EOF; 360 "###" headings, all at column 1
+  (0 indented), no duplicates; "^### Session 27 summary" 1 (last block), "^### 6.3" 3, late "Phase 6
+  self-test issued" block once (after Field Guide Phase 6, on purpose) -> session-27 end blocks
+  already appended, no block file needed. Sources = image 6.2 line map, md5 all match: .c 347 CRLF
+  1fde6faa8ee9e8f71414ea47465b4135; .S 150 CRLF 80597389d9e13023d4ce6099ece1e29c; .ld 45 newlines
+  CRLF no EOF newline 83f60f7ff0b472dccfacf54545d00f1c; FreeRTOSConfig.h 84 LF
+  7d9e1b3f81ece5b8cca051d0d1811667. Bench Map v250 read -> v251 (Phase 6 chip "plan proposed" ->
+  "done · self-test 2.45/3"). Asked: git log --oneline -5 + git status --short, Breakpoints view,
+  leftover debug session, image in flash, wk-3 choice (packaging vs Phase 6 open items).
+### Packaging chosen — session 28, 2026-11-23 12:45
+Intake answers: HEAD = origin/main = e034011 "log: session 27 end + summary", git status clean;
+  Breakpoints view empty; terminated sessions removed. Image in flash not confirmed (needed at P.7).
+User choice: (a) packaging early (wk 3). Repo check (tutor, public clone at e034011): README 47 lines
+  covers Phases 1-4.1, Build section stale (says image ends in MemManage; flash runs FreeRTOS 6.2);
+  .cproject 113-114 already ${workspace_loc:/${ProjName}/source/freertos/...} -> item CLOSED;
+  source/freertos/ has no LICENSE (MIT in every header; V11.2.0 LICENSE.md fetched, sha256
+  508a77d2...). Phase-end commits: 6375ed1 (4.3), 2a202a9 (5.3a), 31d7b5a (6.2); Phases 0-4.1 only
+  in root 4b89487. Plan proposed: P.1 decisions -> P.2 top README + licences + tags (24 Nov) -> P.3
+  Phase 5/6 write-ups (25-27) -> P.4 Phases 0-4 (28-29) -> P.5 drill bank 30-40 Qs (30 Nov-2 Dec)
+  -> P.6 resume/LinkedIn (3 Dec) -> P.7 fresh-clone build (4 Dec) -> 5 Dec buffer. Asked PD1-PD5.
+  Log repair (13:45): these two blocks were missing at the first count (362 vs 364); heredoc paste
+  did not create the scratch file twice -> sent as a download, inserted before "P.1 decided".
+### P.1 decided — session 28, 2026-11-23 12:50
+PD1 = B: short top README (results table + links) + docs/phase-0-1.md ... docs/phase-6.md (tutor
+  recommendation). PD2 = MIT for own code (user: "your suggestion"; tutor suggested MIT, same as the
+  kernel); source/freertos/LICENSE.md added regardless. PD3 = annotated tags phase-4 6375ed1,
+  phase-5 2a202a9, phase-6 31d7b5a (Phases 0-3 untagged: inside root 4b89487). PD4 = R:
+  docs/interview_drills.md in the public repo, answers folded in <details> (tutor recommendation,
+  user asked; can change before P.5). PD5 = yes: resume + LinkedIn experience text attached at P.6.
+### P.2 installed — session 28, 2026-11-23 13:08
+Files (tutor-drafted): README.md 70 lines sha256 13911601f83b17cbb9b2169033ffa293615e46565003020b14f61514a629b488
+  (Phases 1-6 table, layout incl. FreeRTOSConfig.h + source/freertos/, Build and run: 0/0, FLASH
+  9028 B, RAMB 3136 B, VCOM Hello / IRQ 39 taken / Scheduler start / "B got N dt=0" every 504 ticks,
+  tag table, licence section; docs links deferred to P.4); LICENSE 24 lines sha256
+  2f590322b29fcc9318a90afa2b54ac0b58d282b0a447c8664ad66a713a6108e2 (MIT, Copyright (c) 2026
+  Mohammed Hafiz, note excluding source/freertos/); source/freertos/LICENSE.md 19 lines sha256
+  508a77d2e7b51d98adeed32648ad124b7b30241a8e70b2e72c99f92d8e5874d1 (= FreeRTOS-Kernel tag V11.2.0
+  0adc196 LICENSE.md, MIT, no copyright line; per-file headers carry the Amazon notice). Tutor
+  correction before issue: first draft said "one B line per second" — loop period is 504 ticks.
+Install (user, 13:08): first ls "No such file" (files not yet downloaded; heredocs offered), then
+  ls found all three in Documents -> cp; sha256 3/3 match, wc 70/24/19, git status " M README.md",
+  "?? LICENSE", "?? source/freertos/LICENSE.md"; git diff README.md reviewed (LF->CRLF warning
+  harmless).
