@@ -5018,3 +5018,32 @@ Predictions 5½/8: R1 ✅ (lr 0xFFFFFFFD, basepri 0); R2 ✅ (0xFFFFFFFD, vPortY
   direction right); R4 ½ (134 vs 252; vClearInterruptMask ✅); R5 ✅ (basepri 0, base + 944 — value
   exact, reasoning missed the 4 B pad); R6 ✗ (204 vs 160); R7 ½ (152 vs 156, the pad); R8 ✅ (100).
   Margins free: A 864 / 1024, B 868 / 1024, idle 412 / 512. Open: &s_task_b_tcb read 0 (attempt 1).
+### Phase 6 self-test graded — session 27, 2026-11-23 11:40: 2.45/3
+Q1 0.93: a 0.8 (word order, writers, PC 0x1A0, RETPSR.SPREALIGN at 0x20008944 + RPBVF p.109 ✅; B's
+  R4–R12 given as port fill values but not measured; port.c fill lines cited 641–663 — real 1640–1671,
+  portPRELOAD_REGISTERS 1 at port.c 372); b 1 (bits 0–7 named, ES 1 Secure, DCRS 1 default rules, S 1
+  Secure stack — Phase 5 weak point 1 fixed); c 1 (0xFFFFFFED, 26 + 26 words, T 0x20008878, PC +0x80).
+Q2 0.85: a 0.7 (flow, skipped vstmdbeq / vldmiaeq, BASEPRI 0x20 -> 0, 0x200084B8 / 0x20008900 /
+  0x20008928 / 0x2000894C ✅; symbolic "Task A PSPLIM" = 0x20008158 and "&pxCurrentTCB" = 0x2000800C;
+  lr clobbered by bl -> EXC_RETURN carried in r3 not stated); b 1 (SysTick masked, IRQ 39 not; MSP;
+  0xFFFFFFF1).
+Q3 0.67: a 0.5 (+412 … +488 + stale/live + proof read x/1wx 0x200089F8 ✅; +492 … +508 mislabelled:
+  dump +492 0x12121212, +496 0, +500 r7 0x07070707, +504 lr 0x115 (portTASK_RETURN_ADDRESS, nm check
+  owed), +508 0xA5 = the only never-written word; task entry SP 0x20008C38); b 0.6 (xPSR decode ✅, 8 B
+  = 4 B callee + 4 B pad ✅, sum muddled; clean: 4 + 16 + 4 + 4 + 32 + 40 = 100); c 0.9 (0x20008A38
+  legal, last word of s_idle_tcb, UsageFault STKOF CFSR bit 20, slot 6, SHCSR bit 18 ✅; port stores
+  0x20008A3C, hardware drops bits [2:0]; tasks.c 1997 not 1951). Tutor note: paste again carried
+  another tool's marks. Tutor error: grading message cited port.c 1618 for the "offset" word — the
+  compiled branch is 1640 (portPRELOAD_REGISTERS 1); corrected in the Field Guide.
+### Field Guide Phase 6 — PHASE 6 CLOSED — session 27, 2026-11-23 12:05
+Field Guide (doc 8724fa96, rev 53 -> 64) heading -> "M33 Field Guide: Phases 0–6 in Plain Words", intro
+  "Phase 6 (sessions 1–27)". New sections after "Breaking into a switch on purpose": FreeRTOS on our
+  own startup (6.0–6.1: D1–D7 table, port owns slots 11/14/15, first-task start table); Two tasks and a
+  queue (6.2: event vs tick switch table, 504 vs 503, PendSV taken at vClearInterruptMask); Inside the
+  FreeRTOS switch (6.3: PendSV 8 steps with H1/H2 values, ours vs FreeRTOS table, 70 vs 250/252, two
+  take points, method); Stack use and PSPLIM (6.3: used/free table, idle stack top-down table, .su + 72
+  not a bound, PSPLIM bits [31:3]). Lessons: Phase 6 additions (7) + self-test 2.45/3 line. Quick
+  reference: Phase 6 numbers (14 rows). Still open: Phase 6 open items (FP path unmeasured,
+  &s_task_b_tcb read 0, 180-cycle split, idle live-context read, MIT LICENSE).
+PHASE 6 CLOSED (6.0 5¾ -> rework 8½/10, 6.1 5¼/7, 6.2 3½/5, 6.3 5½/8, self-test 2.45/3; 6.4
+  skipped). Board: image 6.2 (31d7b5a) in flash, no breakpoints. Bench Map v249.
