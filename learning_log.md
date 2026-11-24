@@ -5216,3 +5216,13 @@ Tutor pull + link check: 371 headings; README + 7 docs hashes match; all relativ
   (README -> docs/phase-0-1, -2, -3, -4, -5, -6, LICENSE, source/freertos/LICENSE.md,
   learning_log.md; Next: chain 0-1 -> 2 -> 3 -> 4 -> 5 -> 6). Tag deep links checked at drafting
   (phase-5 startup_m33.S L127, phase-4 .c L180). P.4 done ~4 days ahead of the 28-29 Nov target.
+### P.5 issued — session 28, 2026-11-24 13:10
+docs/interview_drills.md 404 lines sha256 7769e3208be21d9540b02d84c244431a852524239bfdfb47f1938bfacc993b58
+  (tutor-drafted from the log and docs/phase-*.md): 36 questions, groups A boot/memory, B exceptions,
+  C faults, D modes/privilege/SVC, E context switch, F FreeRTOS on the M33 (6 each); answers folded
+  in <details> with measured values + log step; "Plain words" one-liner per answer for a
+  non-firmware interviewer (user request 12:03); star on self-test weak points B2 EXC_RETURN, B4
+  ICSR words, B6 SPREALIGN, D2 CONTROL entry/return, F4 PSPLIM; E6 FP cost marked derived (6.4 not
+  run). PD4 = R confirmed (public repo, answers folded). README.md 72 lines sha256
+  22a1384cf973cd39704d24a474d5c547c7f6deb1d05eb0d6d4e16c7bc65e6a77 (sent as README_p5.md): layout
+  line for the drill bank.
