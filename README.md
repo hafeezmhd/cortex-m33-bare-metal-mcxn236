@@ -34,6 +34,7 @@ source/freertos/                   FreeRTOS-Kernel V11.2.0, unmodified (tasks.c,
                                    include/, portable/GCC/ARM_CM33_NTZ/non_secure/)
 m33_scratch.ld                     FLASH 1 MB @0x0, RAMB 32 KB @0x2000_8000
 docs/phase-*.md                    one write-up per phase: what was built, what was measured, what it showed
+docs/interview_drills.md           36 interview questions answered with the measured values (answers folded)
 learning_log.md                    every step: prediction, raw result, grade, what was learned
 ```
 
