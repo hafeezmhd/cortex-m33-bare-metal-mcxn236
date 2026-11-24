@@ -14,15 +14,15 @@ via the on-board MCU-Link · **Kernel:** FreeRTOS-Kernel V11.2.0, port `GCC/ARM_
 
 ## What is proven on hardware
 
-| Phase | Topic | Measured evidence (examples) |
-|---|---|---|
-| 1 | Boot from nothing | Own `.ld` + 56-word vector table; boot ROM calls our `Reset_Handler` (BLX); `.data` copy / `.bss` zero; FPU enabled via CPACR before any FP instruction (NOCP fault reproduced when skipped) |
-| 1 | Register to pin | Red LED (P4_18, active-low) and LPUART4 at 115200 8N1 to the VCOM — clock gates, resets, pin mux, FLEXCOMM mode, BAUD/CTRL all written by our code |
-| 2 | Exceptions and NVIC | SysTick period = 48,000 cycles (CYCCNT); 3 priority bits (write 0xFF → read 0xE0); preemption vs waiting vs tail-chaining, tail-chain proven by cycle count (23 vs ≥ 32); DSB/ISB placement measured |
-| 3 | Faults on purpose | DIVBYZERO and UNALIGNED traps; stack overflow via MSPLIM (STKOF, SP = limit, no frame); precise BusFault (BFAR 0x500B_4030); MemManage via the MPU (MMFAR 0x2000_8040), and proof the faulting store never wrote memory; handlers trust MMFAR/BFAR only when the VALID bit is set |
-| 4 | Modes, privilege, SVC | Thread mode on PSP (CONTROL 0xC → 0xE + ISB; fault frame 0x2000_B000 → 0x2000_AF98, EXC_RETURN 0xFFFF_FFED); unprivileged Thread under the MPU faults on its first fetch (CFSR 0x11 = IACCVIOL + MSTKERR); `svc 0` handler reads imm8 at the stacked return address − 2 and clears nPRIV (CONTROL_S 0xF → 0x1 on entry → 0x0 → 0xE after return: only nPRIV survives the return) |
-| 5 | Own context switcher | PendSV handler in assembly, two tasks on their own PSP stacks with hand-built initial frames; SysTick pends PendSV every 100 ticks and tail-chains into it (LR 0xFFFF_FFFD); one switch = **70 cycles**; a SysTick forced to preempt PendSV nests on MSP (EXC_RETURN 0xFFFF_FFF1) and the switch still completes |
-| 6 | FreeRTOS port by hand | Kernel V11.2.0 on our startup + `.ld`, static allocation only, own `memset`/`memcpy`; port handlers own vector slots 11/14/15 (installation asserts pass); the start reclaims main's MSP (0x2000_FFB8 → 0x2001_0000); queue A → B: event switch (dt 0 ticks, loop 504) vs tick switch at equal priority (dt 1, loop 503); FreeRTOS switch = **250 / 252 cycles** vs our 70 (−O0 C call + BASEPRI window); stack used A 160 / B 156 / idle 100 B by 0xA5 scan; PSPLIM bits [2:0] read back 0, so the limit rounds down onto the TCB's last word |
+| Phase | Topic | Measured evidence (examples) | Write-up |
+|---|---|---|---|
+| 1 | Boot from nothing | Own `.ld` + 56-word vector table; boot ROM calls our `Reset_Handler` (BLX); `.data` copy / `.bss` zero; FPU enabled via CPACR before any FP instruction (NOCP fault reproduced when skipped) | [phase-0-1.md](docs/phase-0-1.md) |
+| 1 | Register to pin | Red LED (P4_18, active-low) and LPUART4 at 115200 8N1 to the VCOM — clock gates, resets, pin mux, FLEXCOMM mode, BAUD/CTRL all written by our code | [phase-0-1.md](docs/phase-0-1.md) |
+| 2 | Exceptions and NVIC | SysTick period = 48,000 cycles (CYCCNT); 3 priority bits (write 0xFF → read 0xE0); preemption vs waiting vs tail-chaining, tail-chain proven by cycle count (23 vs ≥ 32); DSB/ISB placement measured | [phase-2.md](docs/phase-2.md) |
+| 3 | Faults on purpose | DIVBYZERO and UNALIGNED traps; stack overflow via MSPLIM (STKOF, SP = limit, no frame); precise BusFault (BFAR 0x500B_4030); MemManage via the MPU (MMFAR 0x2000_8040), and proof the faulting store never wrote memory; handlers trust MMFAR/BFAR only when the VALID bit is set | [phase-3.md](docs/phase-3.md) |
+| 4 | Modes, privilege, SVC | Thread mode on PSP (CONTROL 0xC → 0xE + ISB; fault frame 0x2000_B000 → 0x2000_AF98, EXC_RETURN 0xFFFF_FFED); unprivileged Thread under the MPU faults on its first fetch (CFSR 0x11 = IACCVIOL + MSTKERR); `svc 0` handler reads imm8 at the stacked return address − 2 and clears nPRIV (CONTROL_S 0xF → 0x1 on entry → 0x0 → 0xE after return: only nPRIV survives the return) | [phase-4.md](docs/phase-4.md) |
+| 5 | Own context switcher | PendSV handler in assembly, two tasks on their own PSP stacks with hand-built initial frames; SysTick pends PendSV every 100 ticks and tail-chains into it (LR 0xFFFF_FFFD); one switch = **70 cycles**; a SysTick forced to preempt PendSV nests on MSP (EXC_RETURN 0xFFFF_FFF1) and the switch still completes | [phase-5.md](docs/phase-5.md) |
+| 6 | FreeRTOS port by hand | Kernel V11.2.0 on our startup + `.ld`, static allocation only, own `memset`/`memcpy`; port handlers own vector slots 11/14/15 (installation asserts pass); the start reclaims main's MSP (0x2000_FFB8 → 0x2001_0000); queue A → B: event switch (dt 0 ticks, loop 504) vs tick switch at equal priority (dt 1, loop 503); FreeRTOS switch = **250 / 252 cycles** vs our 70 (−O0 C call + BASEPRI window); stack used A 160 / B 156 / idle 100 B by 0xA5 scan; PSPLIM bits [2:0] read back 0, so the limit rounds down onto the TCB's last word | [phase-6.md](docs/phase-6.md) |
 
 ## Layout
 
@@ -33,6 +33,7 @@ source/FreeRTOSConfig.h            our kernel configuration (every value from th
 source/freertos/                   FreeRTOS-Kernel V11.2.0, unmodified (tasks.c, queue.c, list.c,
                                    include/, portable/GCC/ARM_CM33_NTZ/non_secure/)
 m33_scratch.ld                     FLASH 1 MB @0x0, RAMB 32 KB @0x2000_8000
+docs/phase-*.md                    one write-up per phase: what was built, what was measured, what it showed
 learning_log.md                    every step: prediction, raw result, grade, what was learned
 ```
 
