@@ -5127,3 +5127,31 @@ Install (user, 13:08): first ls "No such file" (files not yet downloaded; heredo
   ls found all three in Documents -> cp; sha256 3/3 match, wc 70/24/19, git status " M README.md",
   "?? LICENSE", "?? source/freertos/LICENSE.md"; git diff README.md reviewed (LF->CRLF warning
   harmless).
+### P.2 closed — session 28, 2026-11-23 13:57
+Commits pushed: 305b2a5 "P.2: README Phases 1-6 + tags table, MIT LICENSE, FreeRTOS V11.2.0
+  LICENSE.md" (3 files, +82 / -16) and e33f7d7 "log: session 28 intake, packaging chosen, P.1
+  decisions, P.2"; HEAD = origin/main = e33f7d7. Annotated tags pushed and confirmed on GitHub
+  (tutor git ls-remote): phase-4 -> 6375ed1, phase-5 -> 2a202a9, phase-6 -> 31d7b5a.
+Log repair: first count 362 vs 364 — Session 28 intake + Packaging chosen not appended. Two heredoc
+  pastes into Git Bash created no file (ls: No such file; sed 'r' with a missing file inserts
+  nothing, silently). Blocks sent as a download s28_missing.md (23 lines, sha256 5d9e1757...),
+  checked, inserted after line 5085 -> 364 headings, order 5086 / 5096 / 5109 / 5116, 0 CR, EOF
+  newline restored (it had been lost when the P.1/P.2 blocks were pasted). Tutor slip: expected
+  lines 5097/5110/5117 (intake block counted 11 lines, it is 10).
+Process rule (new): tutor sends block files as downloads; user checks ls + sha256sum before cat/sed.
+  Pasting blocks from the chat into a text editor stays fine.
+### P.3 installed — session 28, 2026-11-23 15:39
+Files (tutor-drafted from log blocks 4031-4630 and 4675-5049): docs/phase-6.md 117 lines sha256
+  86e034aa6e3544f52933631daa85b1a8d044fb0834c6b960a2ccf57768c506e8 (D1-D7 table; first task: MSP
+  0x2000_FFB8 -> 0x2001_0000, svc LR 0xFFFF_FFE9 / 104 B, CONTROL_S 0x2, BASEPRI 0, PSPLIM = base;
+  event vs tick switch dt 0 / 504 vs dt 1 / 503, A preempted at vClearInterruptMask+8 vs task_a+70;
+  switch 70 vs 250/252 cycles, 8 vs 10 saved words, 64 vs 72 B, BASEPRI window, two PendSV take
+  points 0x1A0 / 0x1E4E; stack A 160 / B 156 / idle 100 B, .su + 72 not a bound, PSPLIM [2:0] RES0
+  -> limit on the TCB's last word, one-word-overflow claim marked inference (IKDPG); open items;
+  reproduce addresses). docs/phase-5.md 94 lines sha256
+  7cd519c3ba8c352e0d787f8c0ca207575bf5917214888e47cc7a22af878251b0 (design table; 16-instruction
+  PendSV listing from tag phase-5 .S 127; first start 0xFFFF_FFE9, main's 26-word MSP frame never
+  popped, RA = isb, LSPACT 1 / FPCAR 0x2000_FFA8 left; time slicing: tail-chain, SPREALIGN A 1 / B 0,
+  saved PSPs 0x8FB8 / 0x9FB8, 70 cycles, slice 4,800,954; 5.3b nesting proof + double switch; open
+  items). Installed by user: ls OK, sha256 2/2, wc 117/94, git status "?? docs/". README docs links
+  deferred to P.4.
