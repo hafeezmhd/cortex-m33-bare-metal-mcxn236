@@ -5182,3 +5182,22 @@ docs/phase-2.md 100 lines sha256 62ed15ada7519fc4e7f864b71531a1c3824061045ed8b43
   level 5 waits (ISRPREEMPT 0); debugger executes the breakpointed instruction (0x116 vs 0x114);
   C pend lands after dsb, before isb (0x226); tail-chain 23 < 32 = 21 + 17 - 6; core_cm33.h
   mapping; self-test 3.3/5).
+### P.4 file 3 — session 28, 2026-11-24 12:20
+docs/phase-3.md 70 lines sha256 96af65a3825c60bb52ed8e8aa80f6e527d4f2c35016bf1ade1cdac412eeddae7
+  (tutor-drafted from log blocks 3.0 - Phase 3 closed, lines 2042-3460: alarm-panel table at main
+  (CCR 0x201, SHCSR/CFSR/HFSR 0, MMFAR = BFAR 0x2000_FFFC); vector catch DEMCR 0x011007F0 (3.1e);
+  fault table 3.1a udiv -> 0 / 3.1b HardFault FORCED CFSR 0x0200_0000 / 3.1c-d UsageFault SHCSR
+  0x0004_0008 / 3.2a 0x0012_3456 / 3.2b CFSR 0x0100_0000 / 3.3 STKOF 0x0010_0000, SP = limit ->
+  HardFault no lockup / 3.4 BusFault 0x8200 BFAR 0x500B_4030 / 3.5 MemManage 0x82 MMFAR
+  0x2000_8040; MPU words RBAR 0x2000_8045 RLAR 0x2000_8041 MAIR0 0x44 CTRL 5, MPU_TYPE 0x800;
+  findings; TRM/RM discrepancies; self-test 2.55/5 + GDB check). Log 369 headings at 11:36 (user).
+### P.4 files 4-5 — session 28, 2026-11-24 12:35
+docs/phase-4.md 96 lines sha256 571239714014406f21c34b4ff2a75505ad4b14893e5867602ec911dcda70bd6d
+  (tutor-drafted from log blocks 4.0 - Phase 4 closed, lines 3455-3930: banked state at main
+  CONTROL_S 0 / MSP_S 0x2000_FFF0 / PSP 0 / xPSR 0x6900_0000 / SHPR2 0; Thread on PSP 0x2000_B000 ->
+  frame 0x2000_AF98, handler on MSP, EXC_RETURN 0xFFFF_FFED; unprivileged fetch fault CFSR 0x11
+  IACCVIOL + MSTKERR, no frame word written, PSP moved, CONTROL_S 0x1 in handler; SVC_Handler
+  listing from tag phase-4 .c 180; CONTROL_S 0xF -> 0x1 -> 0x0 -> 0xE; IPSR 11, SHCSR 0x0007_0080,
+  RA 0x388; self-test 1.8/3). README.md 71 lines sha256
+  9145efd9065d53c50313eff013a04918f106baf3ff3298758f07ed535b7d7e47 (sent as README_p4.md): Write-up
+  column on all 7 phase rows + docs/phase-*.md layout line. P.4 docs + README committed together.
