@@ -5155,3 +5155,30 @@ Files (tutor-drafted from log blocks 4031-4630 and 4675-5049): docs/phase-6.md 1
   saved PSPs 0x8FB8 / 0x9FB8, 70 cycles, slice 4,800,954; 5.3b nesting proof + double switch; open
   items). Installed by user: ls OK, sha256 2/2, wc 117/94, git status "?? docs/". README docs links
   deferred to P.4.
+### P.3 closed — session 28, 2026-11-24 11:16
+Commits pushed: 7c62840 "P.3: docs/phase-6.md (FreeRTOS port) + docs/phase-5.md (own switcher)
+  write-ups" and e0f8e3d "log: P.2 closed, P.3 installed"; HEAD = origin/main = e0f8e3d, status
+  clean. Tutor pull: 366 headings, docs hashes 86e034aa... / 7cd519c3... on GitHub. Theory question
+  (11:12): Phase 5 vs 6 — same M33 switch mechanism (PendSV lowest, PSP per task, hardware frame +
+  software R4-R11, tail-chain from SysTick, own startup/.ld); FreeRTOS adds priority-based
+  selection, blocking (delay, queue), idle task, BASEPRI 0x20 critical sections, per-task PSPLIM +
+  EXC_RETURN (FP-capable), svc start with MSP reclaim — cost 250/252 vs 70 cycles, 72 vs 64 B.
+### P.4 file 1 — session 28, 2026-11-24 11:45
+docs/phase-0-1.md 106 lines sha256 230e968a2226d6735c386e1fa39949b24121fe380a697e5f8fc95e65332656b4
+  (tutor-drafted from log lines 1-953: Phase 0 facts; 1a 0-byte image / 80 B / word1 0x49 / ROM BLX
+  LR 0x1302_D94D / Secure privileged MSP; 1b-1c orphans in flash, g_zero 0xE before zeroing, NOCP
+  CFSR 0x0008_0000 + FORCED, CPACR fix 3.0f, INVSTATE 26 vs 8 words; 1d ROM-handed 0x7FF, gated
+  PORT error vs GPIO silent 0, IBE vs MUX, action registers, 15 cycles/iteration, 48 MHz; 1e six
+  gates, BAUD 0x0F00_001A 115,384.6, CTRL 0x0008_0000, TDRE vs TC, &/== bug; lessons; self-tests
+  2/5, 3.75/5). Tutor fix before issue: a '|' inside a table cell would have split the row.
+Plan change: P.4 docs installed one by one, committed together with the README links at the end
+  of P.4 (no dead links on GitHub); log blocks committed as they come.
+### P.4 file 2 — session 28, 2026-11-24 12:05
+docs/phase-2.md 100 lines sha256 62ed15ada7519fc4e7f864b71531a1c3824061045ed8b43e5481fba903d94d84
+  (tutor-drafted from log blocks 2.1-2.6b + Phase 2 self-test, lines 988-1981: registers at main;
+  IPR 0xFF -> 0xE0, L << 5; SysTick polled 48,005 / interrupt xPSR 0x0900_000F, ICSR 0x80F, LR
+  0xFFFF_FFE9, 26 words, LSPACT 1, RETPSR 0x0910_0000; IRQ 39 pending-disabled ICSR 0x0040_0000 vs
+  enabled 0x0837, ISPR -> IABR; level 0 preempts (ISRPREEMPT 1, 0xFF88 -> 0xFF68, 0xFFFF_FFF1) vs
+  level 5 waits (ISRPREEMPT 0); debugger executes the breakpointed instruction (0x116 vs 0x114);
+  C pend lands after dsb, before isb (0x226); tail-chain 23 < 32 = 21 + 17 - 6; core_cm33.h
+  mapping; self-test 3.3/5).
