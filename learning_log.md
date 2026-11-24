@@ -5201,3 +5201,18 @@ docs/phase-4.md 96 lines sha256 571239714014406f21c34b4ff2a75505ad4b14893e586760
   RA 0x388; self-test 1.8/3). README.md 71 lines sha256
   9145efd9065d53c50313eff013a04918f106baf3ff3298758f07ed535b7d7e47 (sent as README_p4.md): Write-up
   column on all 7 phase rows + docs/phase-*.md layout line. P.4 docs + README committed together.
+### P.4 installed — session 28, 2026-11-24 11:49
+User check: sha256 5/5 match (README 9145efd9..., phase-0-1 230e968a..., phase-2 62ed15ad...,
+  phase-3 96af65a3..., phase-4 57123971...), wc 71/106/100/70/96, git status M README.md + M
+  learning_log.md + 4 x ?? docs/phase-*.md, log 371 headings. git diff --stat README.md 10+ / 9-.
+Tutor slips in the 12:35 message: expected 9+ / 8- (header + separator + 7 rows = 9 changed lines,
+  + 1 layout line = 10+ / 9-); README row of the expected-hash table carried a garbled
+  self-correction ("9145efd9...dcda70bd6d? no:") — the right value 9145efd9...5b7d7e47 was in the
+  same cell and matched.
+### P.4 closed — session 28, 2026-11-24 12:00
+Commits pushed: ef6b47c "log: P.3 closed, P.4 files 1-2", eb208b2 "P.4: docs/phase-0-1..phase-4
+  write-ups + README Write-up links", f2212b3 "log: P.4 files 3-5"; HEAD = origin/main = f2212b3.
+Tutor pull + link check: 371 headings; README + 7 docs hashes match; all relative links resolve
+  (README -> docs/phase-0-1, -2, -3, -4, -5, -6, LICENSE, source/freertos/LICENSE.md,
+  learning_log.md; Next: chain 0-1 -> 2 -> 3 -> 4 -> 5 -> 6). Tag deep links checked at drafting
+  (phase-5 startup_m33.S L127, phase-4 .c L180). P.4 done ~4 days ahead of the 28-29 Nov target.
