@@ -5274,3 +5274,20 @@ Intake: log 360 headings, all sources matched (md5), git e034011 clean, Breakpoi
   hash cell; expected line numbers off by one; estimated block times (corrected above). Commits:
   305b2a5, e33f7d7, 7c62840, e0f8e3d, ef6b47c, eb208b2, f2212b3, d8fba55, 7497c74, 190ef93.
   Bench Map v250 -> v264.
+### Session 29 intake (2026-11-25 10:55)
+learning_log.md attached = the session-28 file: 5,276 lines, LF only (0 CR), newline at EOF, sha256
+  8be411c8187d62f91e0cb3ea091fe0ff18820832d226e601c64f6e14b63fa63c, md5 6cf4260cce9e911977d675413459c9b7;
+  377 "###" headings, all at column 1 (0 indented), no duplicates; "^### P." 12 (P.1 decided ...
+  P.5 issued); "^### Session 28" 3 (intake 5086, end 5249, summary 5260 = last block, once). P.4
+  heading times out of order (installed 11:49 after files 4-5 12:35) = the logged session-28
+  timestamp correction, not a defect.
+Sources unchanged since session 26 (md5): .c 347 lines CRLF 1fde6faa8ee9e8f71414ea47465b4135,
+  .S 150 CRLF 80597389d9e13023d4ce6099ece1e29c, .ld 45 newlines CRLF no EOF newline
+  83f60f7ff0b472dccfacf54545d00f1c, FreeRTOSConfig.h 84 LF 7d9e1b3f81ece5b8cca051d0d1811667.
+GitHub (tutor clone 10:55): HEAD = c20dafe "log: session 28 end + summary" (user, 10:44) on
+  190ef93; learning_log.md 377 headings, sha256 8be411c8... = the attachment; repo .c/.S/.ld =
+  attachments after CRLF -> LF; FreeRTOSConfig.h identical; tags phase-4, phase-5, phase-6.
+Modbus specs attached: MODBUS Application Protocol Specification V1.1b3 (50 pages), MODBUS over
+  Serial Line Specification and Implementation Guide V1.02 (44 pages, Dec 20 2006).
+Bench Map v264 -> v265 (intake). Asked: git status --short, Breakpoints view empty, debug session
+  left, python --version on Windows. Next: 7.0 Q1-Q4 answers.
