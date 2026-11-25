@@ -5226,3 +5226,51 @@ docs/interview_drills.md 404 lines sha256 7769e3208be21d9540b02d84c244431a852524
   run). PD4 = R confirmed (public repo, answers folded). README.md 72 lines sha256
   22a1384cf973cd39704d24a474d5c547c7f6deb1d05eb0d6d4e16c7bc65e6a77 (sent as README_p5.md): layout
   line for the drill bank.
+### Phase 7/8 re-plan + 7.0 issued — session 28, 2026-11-24 17:30
+User question (17:10): companies ask for CAN and Modbus; nothing to show at this depth. Tutor:
+  prior Modbus (ESP32, Pico 2W, MCXN236 capstone) and capstone CAN exist but lack inside-out
+  evidence. Board: FlexCAN with FD (RM ch. 52 p.1962); CAN1 on P4_16 TXD / P4_15 RXD -> TJA1057
+  (U11) -> J13 (2 CANH, 4 CANL, 3 GND, 1 P5V0; UM12041 2.4 Tables 13-14); R25/R67 series 0 ohm.
+Decisions (user = tutor recommendations): QD1 Modbus first, CAN second; QD2 Modbus on the Phase 6
+  FreeRTOS image; QD3 CAN 2nd node = BeaglePlay (MCAN0 + MCP2562 SocketCAN, validated Jul 2026),
+  loopback first; QD4 BeaglePlay bootable, jumpers + 120 ohm on hand. Plan: Phase 7 Modbus RTU
+  25-27 Nov, Phase 8 CAN 28 Nov-2 Dec, P.6 resume 3 Dec, P.7 + docs/phase-7/8 + drill groups G/H
+  4 Dec, buffer 5 Dec.
+7.0 issued (paper, lighter format): D1 LPUART4 -> VCOM COM3 (TTL, no RS-485); D2 19200 8E1 (M 1,
+  PE 1, PT 0); D3 idle-line end of frame IDLECFG 010 + ILT 1 + ILIE, STAT.IDLE bit 20; D4 RX ISR ->
+  xQueueSendFromISR -> Modbus task, polled TX; D5 slave 1, holding regs 0-7 (0 g_cnt_a, 1 LED,
+  2/3 tick, 4-7 scratch); D6 FC 03/06/16, exceptions 01/02/03, bad CRC / other address -> no reply;
+  D7 all UART prints + IRQ 39 test pend removed, task_b -> Modbus task; D8 Python pymodbus master +
+  raw mode. Q1 IRQ 39 priority vs MAX_SYSCALL; Q2 char time / t3.5 vs IDLECFG; Q3 BAUD word;
+  Q4 replies for 01 03 00 04 00 02 and 01 03 00 08 00 01. Owed: Modbus specs (App. Protocol
+  V1.1b3, Serial Line V1.02) attached; Python on Windows? RM fields opened (pdftotext p.1872-1888):
+  CTRL RIE 21, ILIE 20, TE 19, RE 18, IDLECFG 10:8 (010 = 4), LOOPS 7, RSRC 5, M 4, ILT 2, PE 1,
+  PT 0; STAT TDRE 23, TC 22, RDRF 21, IDLE 20 (W1C), OR 19, NF 18, FE 17, PF 16.
+### Session 28 end (2026-11-24 18:22)
+Session ended at the user's request (length); continuation in a new chat (session 29) with
+  continuation_prompt_session29.txt. GitHub (tutor pull 18:25): HEAD = origin/main = 190ef93 "log:
+  P.4 installed + closed, P.5 issued" (on 7497c74 P.5 code); 374 headings pushed, no EOF newline
+  (restored in the session-29 file). Tags phase-4/5/6 on GitHub. Sources unchanged since session 26
+  (image 6.2, 31d7b5a in flash, not reflashed in session 28; no board use). P.5 install: sha256 on
+  GitHub match (docs/interview_drills.md 7769e320..., README 22a1384c...). 7.0 answers Q1-Q4 owed.
+TUTOR CORRECTION (timestamps): the "P.4 file 1/2/3/4-5" block times 11:45 / 12:05 / 12:20 / 12:35
+  were estimated ahead of the real clock; the files were issued between 11:23 and 11:43 (user
+  messages 11:23, 11:30, 11:38, 11:43) — that is why "P.4 installed 11:49" sorts before "P.4 files
+  4-5 12:35". From session 29 every block time = the timestamp of the message it answers.
+### Session 28 summary (2026-11-23 12:36 -> 2026-11-24 18:22)
+Intake: log 360 headings, all sources matched (md5), git e034011 clean, Breakpoints view empty;
+  Bench Map v250 -> v251 (Phase 6 chip fixed). User chose (a) packaging early. P.1 decisions: PD1 B
+  (top README + docs/phase-*.md), PD2 MIT, PD3 tags, PD4 R (drill bank in repo, folded), PD5 resume
+  text at P.6. P.2: README Phases 1-6 + tag table, LICENSE (MIT), source/freertos/LICENSE.md (V11.2.0)
+  -> 305b2a5; tags phase-4 6375ed1, phase-5 2a202a9, phase-6 31d7b5a pushed. Log repair: two blocks
+  missing (362 vs 364), two heredoc pastes created no file -> blocks as a download + sed '5085r'.
+  P.3: docs/phase-6.md, phase-5.md -> 7c62840. Theory: Phase 5 vs 6 (same M33 mechanism; FreeRTOS
+  adds priorities, blocking, queues, BASEPRI, PSPLIM, MSP reclaim). P.4: docs/phase-0-1, -2, -3, -4 +
+  README Write-up column -> eb208b2; tutor link check (all relative links resolve). P.5:
+  docs/interview_drills.md (36 Qs, groups A-F, folded answers, "Plain words" one-liners per user
+  request, stars on self-test weak points) -> 7497c74. Re-plan: Phase 7 Modbus RTU slave (on the
+  FreeRTOS image, VCOM), Phase 8 CAN (FlexCAN CAN1 -> TJA1057 -> J13 -> BeaglePlay); P.6/P.7 moved to
+  3-4 Dec. 7.0 paper issued (D1-D8, Q1-Q4). Tutor slips: README diff count 9/8 vs 10/9; garbled
+  hash cell; expected line numbers off by one; estimated block times (corrected above). Commits:
+  305b2a5, e33f7d7, 7c62840, e0f8e3d, ef6b47c, eb208b2, f2212b3, d8fba55, 7497c74, 190ef93.
+  Bench Map v250 -> v264.
