@@ -5302,3 +5302,39 @@ Venv (12:19): C:\Users\LENOVO\Documents\modbus_venv (python -m venv; ESP-IDF Pyt
   untouched), called as modbus_venv\Scripts\python.exe (no activation script needed). Installed
   pymodbus 3.16.2 (BSD-3-Clause), pyserial 3.5. The tutor's master script targets pymodbus 3.16.2.
 Next: 7.0 Q1-Q4 answers.
+### 7.0 answers graded — session 29, 2026-11-25 14:39: 3/4
+Q1 3/4: smallest IPR9 PRI_N3 byte (0xE000E427) = 0x20 (level 1; 3 bits, L << 5) correct with reason
+  (BASEPRI 0x20 masks values >= 0x20, lower number = more urgent). Missed: the concrete level-0
+  outcome in OUR build — xQueueSendFromISR (queue.c 1189 portASSERT_IF_INTERRUPT_PRIORITY_INVALID ->
+  portmacrocommon.h 384 vPortValidateInterruptPriority) fails configASSERT(ucCurrentPriority >=
+  ucMaxSysCallPriority) at port.c 2132 (0x00 < 0x20) -> FreeRTOSConfig.h 73-81: cpsid i,
+  g_assert_line = 2132, park. IPR9 was never written (0 measured 2.5b-1), so the Phase 7 code must
+  write it. port.c 2132 not cited although named in the question.
+Q2 3/4: 11 bits (1 start, 8 data, 1 parity, 1 stop; Serial Line V1.02 p.12 §2.5.1), 572.92 us,
+  t3.5 = 2.0052 ms (p.13 §2.5.1.1; timers "strictly respected" at <= 19200, fixed 1.750 ms only
+  above 19200, p.13), IDLECFG 010 = 4 chars x 11 = 44 bit times = 2.2917 ms vs 38.5 = 2.0052 ms,
+  +0.2865 ms — all values right. Source for IDLECFG wrong: log 1e.4c-2 composed IDLECFG 000
+  (receiver off) and 1e.4d is the one-byte 'a' test; right sources RM p.1884 (IDLECFG 010b = 4) and
+  RM p.1851 (full character time = start + data mode + stop bits, 9 to 13 bit times; M 1 = 9-bit
+  data incl. parity -> 11).
+Q3 1: SBR 156 (0x9C; 48e6 / (16 x 19200) = 156.25), actual 19,230.77 baud, +0.16 %, BAUD
+  0x0F00_009C (OSR 01111b at 28:24, SBR 12:0); formula log 1e.4c-1 / line 606 (RM 50.5.5.6
+  p.1871); within "better than 1 % in transmission ... 2 % in reception" (Serial Line p.20).
+Q4 1/2: 01 03 00 04 00 02 -> 01 03 04 12 34 00 00 correct (App. Protocol V1.1b3 p.15 response,
+  p.5 big-endian). 01 03 00 08 00 01 -> answered a normal reply "01 03 02 <Reg8_Hi> <Reg8_Lo>"
+  (symbolic) — wrong: D5 has holding registers 0-7 only, so register 8 does not exist ->
+  exception response 01 83 02 (p.15 "Error code 0x83, Exception code 01 or 02 or 03 or 04";
+  p.16 state diagram "Starting Address + Quantity of Registers == OK" NO -> ExceptionCode = 02;
+  p.48 02 ILLEGAL DATA ADDRESS).
+Form: the answers again carried another tool's formatting (LaTeX $...$, stray "**", "Source:*",
+  "not given in the prompt") — flagged once (session-27 weak point 6); graded as submitted.
+Tutor checks (opened with pdftotext): port.c V11.2.0 2095-2133 (2132 = the assert), queue.c 1189,
+  portmacrocommon.h 384; Serial Line p.12, p.13, p.20; App. Protocol p.5, p.15, p.16, p.48;
+  RM p.1851, p.1884 (IDLECFG), p.1885 (ILT), p.1854 (REIR[IDTIME] = idle in bits since the last
+  stop bit, replaces ILT/IDLECFG — not used), p.1871 (SBR).
+Design additions proposed (D9-D12, answer owed): D9 IPR9 PRI_N3 = 0x20; D10 one 256-byte RX
+  buffer, ISR drops bytes while the task owns a frame; ISR clears OR/FE/PF (W1C) and marks the
+  frame bad; D11 broadcast address 0: FC 06/16 executed, no reply; D12 write to RO register
+  (0, 2, 3) -> exception 02; FC 03 quantity 1-125 and FC 16 quantity 1-123 else exception 03.
+  Gap stated: t1.5 (859 us) inter-character timeout not detected (IDLE needs 4 chars) — a
+  frame with a 1.5-3.5 char gap is caught only by the CRC.
