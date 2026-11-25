@@ -5291,3 +5291,14 @@ Modbus specs attached: MODBUS Application Protocol Specification V1.1b3 (50 page
   Serial Line Specification and Implementation Guide V1.02 (44 pages, Dec 20 2006).
 Bench Map v264 -> v265 (intake). Asked: git status --short, Breakpoints view empty, debug session
   left, python --version on Windows. Next: 7.0 Q1-Q4 answers.
+### Python master environment — session 29, 2026-11-25 12:19
+Intake commit pushed: 64a8899 "log: session 29 intake" (c20dafe..64a8899), log 378 headings.
+  Breakpoints view empty, no debug session left (user, 11:06).
+Python on Windows (PowerShell, 11:28): no py launcher; where.exe python -> C:\Espressif\tools\
+  python\python.exe (ESP-IDF's native Windows build, 3.11.15) first, then the WindowsApps store
+  stub. TUTOR CORRECTION: at 11:06 the tutor guessed "MSYS2/MinGW Python" from 3.11.15 — wrong;
+  it is ESP-IDF's own native Windows Python (esptool uses pyserial on COM ports from it).
+Venv (12:19): C:\Users\LENOVO\Documents\modbus_venv (python -m venv; ESP-IDF Python left
+  untouched), called as modbus_venv\Scripts\python.exe (no activation script needed). Installed
+  pymodbus 3.16.2 (BSD-3-Clause), pyserial 3.5. The tutor's master script targets pymodbus 3.16.2.
+Next: 7.0 Q1-Q4 answers.
