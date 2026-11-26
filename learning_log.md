@@ -5433,3 +5433,51 @@ Weak points (7.1): lock flags left unanswered again (R6 own-list contradiction, 
   file names with "_2"; sizes estimated; link order not read from the build line.
 Strengths: R7 derivation within 4 cycles; R3/R4 composed words exact; second CRC exact; T-list
   walk for R6 itself was right.
+### 7.2 issued — session 29, 2026-11-26 14:04 (no code change; latency check)
+Commits pushed (user, 14:04): de94afc "7.1: Modbus RTU slave on LPUART4 (19200 8E1, idle-line RX
+  IRQ, FC 03/06/16) + pymodbus master" (.c + tools/mb_master.py, 454+ / 99-), 8e321eb "log: 7.1
+  issued, locked, measured + graded" (95 lines = 33 + 20 + 42); HEAD = origin/main = 8e321eb,
+  status clean; log 383 headings. Debug session Terminated after the 7.1 halt (user).
+7.2 question: is the 137-192 ms first-byte time in the 7.1 demo the slave, or GDB's ignore-count
+  halts (inference in 7.1)? Same image (de94afc), request 01 03 00 04 00 02 sent 5 times with
+  mb_master.py raw in three setups: (A) standalone after USB replug, no debugger; (B) debug session,
+  no breakpoints, free run; (C) debug session, break mb_send + ignore 100.
+  Predictions R1-R3 = median first-byte time (ms) per setup, one value each, before the run.
+### Session 29 end (2026-11-26 14:13)
+Session ended at the user's request (length); continuation in a new chat (session 30) with
+  continuation_prompt_session30.txt. State: image 7.1 (de94afc) in flash, debug session Terminated
+  after the 7.1 halt; Breakpoints view holds bp 2 (break mb_send) from the console unless removed —
+  Remove All before the next launch. GitHub HEAD = origin/main = 8e321eb, clean; 7.2 issued block
+  appended locally (384 headings) but not committed. 7.2 predictions R1-R3 owed (median first-byte
+  ms for setups A standalone / B debug free run / C debug with break mb_send + ignore 100).
+  Plain-words recap of Phases 0-7 and the plan given on request (14:10).
+### Session 29 summary (2026-11-25 10:55 -> 2026-11-26 14:13)
+Intake clean (377 headings, all sources matched, GitHub c20dafe already pushed); intake block
+  64a8899. PC master environment: ESP-IDF's native Windows Python 3.11.15 (tutor guessed MSYS —
+  corrected), venv C:\Users\LENOVO\Documents\modbus_venv with pymodbus 3.16.2 + pyserial 3.5.
+  7.0 answers 3/4 (Q1 port.c 2132 assert not named; Q2 IDLECFG source wrong; Q3 right; Q4 register 8
+  -> exception 01 83 02 missed); model answers + plain-words versions given on request; D9-D12 added
+  (IPR9 0x20, RX buffer ownership + error flags, broadcast, RO-write / quantity exceptions).
+  7.1: tutor drafted the .c (534 lines) and tools/mb_master.py (168), trial build GCC 13.2.1 and a
+  host test of the frame logic (found a length bug before issue; 12/12 cases on a pty simulator).
+  Board: Modbus RTU slave works over the VCOM at 19200 8E1 — every demo reply as designed; idle
+  frame end 109,820 cycles after the last byte (predicted 109,824); 158 interrupts = 141 bytes +
+  17 IDLE; IDE link order puts the kernel first (handler 0x1A80); FLASH 10288 B. Predictions
+  3 3/4 of 8 (R1/R2 wrong; R6 own-list contradiction flagged at lock, no addendum). 7.1 CLOSED.
+  7.2 latency check issued. Tutor slips: Python "MSYS2" guess; trial-build placement used a
+  different link order than the IDE. Commits 64a8899, b598fec (7.0 graded), de94afc (7.1 code),
+  8e321eb (7.1 log). Bench Map v264 -> v275.
+### Session 30 intake (2026-11-26 14:24)
+learning_log.md attached = the session-30 file: 5,469 lines, LF only (0 CR), newline at EOF, sha256
+  ae751c1fa228e918837ded33e2ba0c5b7a30c3170bfcb1f23dd5dd6a04646e75, md5 c8e3bf2fa8fb75b64cc8db675dcb0e0f;
+  386 "###" headings, all at column 1 (0 indented), no duplicates; "^### Session 29" 3 (intake 5277,
+  end 5446, summary 5454 = last block, once); "^### 7.1" 3 (issued, LOCKED, measured + graded);
+  first 5,435 lines sha256 239c04553ac9... = GitHub 8e321eb learning_log.md (383 headings).
+Sources = image 7.1 (md5): .c 534 CRLF d8bb234163267cb121298276f8b8c56d, .S 150 CRLF
+  80597389d9e13023d4ce6099ece1e29c, .ld 83f60f7ff0b472dccfacf54545d00f1c, FreeRTOSConfig.h 84 LF
+  7d9e1b3f81ece5b8cca051d0d1811667; tools/mb_master.py 168 LF sha256 4c73c3a1...
+GitHub (tutor clone 14:24): HEAD = 8e321eb on de94afc; repo .c/.S/.ld/.h = attachments after
+  CRLF -> LF; mb_master.py identical; tags phase-4, phase-5, phase-6.
+Bench Map v275 -> v276 (intake). Owed: commit the session-30 log ("log: 7.2 issued + session 29
+  end + summary", 386), then this block ("log: session 30 intake", 387); Breakpoints view Remove All
+  (console bp 2 from 7.1). Next: 7.2 predictions R1-R3.
