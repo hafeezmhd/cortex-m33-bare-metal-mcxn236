@@ -5481,3 +5481,50 @@ GitHub (tutor clone 14:24): HEAD = 8e321eb on de94afc; repo .c/.S/.ld/.h = attac
 Bench Map v275 -> v276 (intake). Owed: commit the session-30 log ("log: 7.2 issued + session 29
   end + summary", 386), then this block ("log: session 30 intake", 387); Breakpoints view Remove All
   (console bp 2 from 7.1). Next: 7.2 predictions R1-R3.
+### 7.2 predictions LOCKED — session 30, 2026-11-26 17:05 (before run)
+R1 A standalone 11.1 ms (8 request chars 4.576 + idle 2.288 + first reply char 0.572 + assumed
+  USB/PC 3.7). R2 B debug free run 11.1 ms (core never halts, same as A). R3 C bp mb_send + ignore
+  100: 11.1 ms (ignore 100 never used up; core never halts before hit 101).
+Lock flags (no addendum sent): R1 reply "A3 D5" vs logged 7.1 BE 85; "log ends at Session 25"
+  (it ends with the session-30 intake); "~3.7 / ~11.1" hedges. R2 "Session 13 theory Q&A" =
+  placeholder source. R3 reason contradicts itself ("ignore counts still halt the target" vs "core
+  never halts") and the logged session-29 Tooling note (every hit halts the core, GDB resumes it).
+Intake commit: e6d57ee "log: 7.2 issued + session 29 end + summary + session 30 intake" (one commit
+  instead of the planned two; 387 headings on GitHub, tutor-checked). Breakpoints view empty,
+  terminated sessions removed (user, 15:30).
+### 7.2 measured + graded — 7.2 CLOSED — session 30, 2026-11-26 17:43: 0/3
+Image 7.1 (de94afc), no code change. Request 01 03 00 04 00 02 85 CA x5 per setup (mb_master.py
+  raw; first-byte time = s.flush() return -> first byte read, lines 55-63). Every reply
+  01 03 04 00 00 00 00 FA 33, CRC ok (regs 4/5 = 0: .bss cleared by the cold power-on in A and the
+  reset at launch; 7.1's BE 85 belonged to regs 0x1234 / 0).
+A standalone after USB replug (17:20): 7.8 / 7.8 / 8.0 / 7.7 / 9.2 ms -> median 7.8 ms.
+B debug free run (17:26; launch "Temporary breakpoint 1, main () … :477"; bp 2 break mb_exception
+  at 0x1DE8 line 370, never reached by the 5 requests — only to end the run halted; first B loop
+  output not pasted, B redone from the first mb_exception halt): 8.4 / 7.8 / 8.6 / 9.3 / 7.7 ms ->
+  median 8.4 ms. Halt by raw 01 03 00 08 00 01 (exception 02): "Breakpoint 2, mb_exception (fc=3,
+  code=2)", PowerShell "nothing in 300 ms".
+C (17:43; break mb_send = bp 3 at 0x1D6E line 358, ignore 100; the step-9 console lines were not
+  pasted — info breakpoints shows the setup): 165.5 / 188.1 / 188.0 / 186.4 / 191.7 ms -> median
+  188.0 ms. info breakpoints at the end: bp 2 hit 3 times; bp 3 hit 6 times, "ignore next 94 hits"
+  (6 = 1 exception reply from the B halt + 5 requests).
+Slave side (bp 4 at line 362 = 0x1DA0, exception frame, n 3): g_mb_cyc_reply - g_mb_cyc_idle = 4348
+  cycles = 90.6 us at 48 MHz (IDLE stamp in the ISR -> queue -> task -> CRC over 8 B -> mb_process
+  -> CRC over 3 B -> stamp at line 361; includes one halt/restart at bp 2, ~6 cycles, inference
+  from 2.6). g_mb_ok 10 (5 B + 5 C), g_mb_exc 3 (counted before mb_send, .c 455), g_assert_line 0.
+  Terminated at 362.
+Result: A 7.8 ~ B 8.4 (within each other's spread 7.7-9.3) -> an idle debugger adds nothing; C 188.0
+  = about 180 ms more per reply = one halt + GDB ignore-count check + resume per mb_send hit over
+  MCU-Link CMSIS-DAP / LinkServer (inference: the hit count advances, so each hit halted). The 7.1
+  137-192 ms was this debugger cost (7.1 inference CLOSED). Slave reply latency 90.6 us is ~1 % of A;
+  the rest of A is the request/idle/reply-char time plus PC/USB (split not measurable here: if flush
+  returns before the 8 request chars leave, PC/USB ~ 0.4 ms; if after, ~ 4.9 ms).
+Grades: R1 0 (11.1 vs 7.8; idle 2.288, reply char 0.572 and "negligible CPU latency" right —
+  measured 90.6 us — but the 3.7 ms USB part has no source and the row was worth "no prediction"
+  for that part or a number from the 7.1 run); R2 0 (11.1 vs 8.4; the relation "B = A" was right
+  within noise; placeholder source); R3 0 (11.1 vs 188.0; reason contradicted itself and the logged
+  Tooling note — flagged at lock, no addendum).
+Weak points (7.2): lock flags unanswered a third step in a row (7.1 R2/R6, 7.2 R1/R2/R3); a logged
+  Tooling note (ignore counts halt the core) read and then reasoned against; "the log ends at
+  Session 25" = the old file copy, not the current one. Process: B loop and step-9 console lines
+  missing from the first pastes. Strengths: timing parts derived from our own numbers (2.288 ms =
+  44 bit times, 0.572 ms/char) and the A = B relation right.
