@@ -29,6 +29,11 @@
      Phase 5 switcher, SysTick_Handler, SVC_Handler removed (port owns slots 11/14/15).
 6.2: queue A -> B. A sends its count, then spins 3 ticks; B blocks on the queue and prints.
      Run 1 TASK_B_PRIO 2 (above A), run 2 TASK_B_PRIO 1 (equal): event switch vs tick switch.
+7.1: Modbus RTU slave 1 on LPUART4 (VCOM COM3), 19200 8E1, decisions 7.0 D1-D12.
+     RX + idle-line interrupt (IRQ 39 at 0x20) -> frame length queue -> modbus task (replaces
+     task_b); CRC-16, FC 03/06/16, exceptions 01/02/03; polled TX. All UART prints, the IRQ 39
+     test pend, uart4_puts/uart4_put_u32 and the 6.2 queue/globals removed; task_a only counts.
+     Unused macros removed: GPIO4_PTOR, LPUART4_DATARO, SYST_*, SCB_SHPR3_*, SCB_ICSR*, NVIC_ISPR1*, MPU_*.
 */
 
 #include <stdint.h>
@@ -41,9 +46,10 @@
 #define REG8(addr)  (*(volatile uint8_t *)(addr))
 
 #define SYSCON_AHBCLKCTRLSET0 0x50000220u
+#define GPIO4_PSOR            0x5009E044u /* 7.1: LED off (P4_18 high, active-low LED) */
 #define GPIO4_PCOR            0x5009E048u
+#define GPIO4_PDOR            0x5009E040u /* 7.1: read back the LED pin level for register 1 */
 #define GPIO4_PDDR            0x5009E054u
-#define GPIO4_PTOR            0x5009E04Cu
 
 /*UART*/
 #define SYSCON_AHBCLKCTRLSET1 0x50000224u
@@ -61,26 +67,23 @@
 #define LPUART4_STAT     0x500B4014u
 #define LPUART4_CTRL     0x500B4018u
 #define LPUART4_DATA     0x500B401Cu
-#define LPUART4_DATARO	 0x500B4030u	 // RM 50.5.5.1 p.1863
 
-/*LPUART4_STAT*/
+/*LPUART4_STAT (RM 50.5.5.7 p.1872-1877)*/
 #define LPUART4_STAT_TDRE   (1u << 23)
+#define LPUART4_STAT_RDRF   (1u << 21)  /* 7.1: cleared by reading DATA (FIFO off) */
+#define LPUART4_STAT_IDLE   (1u << 20)  /* 7.1: W1C */
+#define LPUART4_STAT_OR     (1u << 19)  /* 7.1: W1C */
+#define LPUART4_STAT_NF     (1u << 18)  /* 7.1: W1C */
+#define LPUART4_STAT_FE     (1u << 17)  /* 7.1: W1C */
+#define LPUART4_STAT_PF     (1u << 16)  /* 7.1: W1C */
+#define LPUART4_STAT_ERR    (LPUART4_STAT_OR | LPUART4_STAT_NF | LPUART4_STAT_FE | LPUART4_STAT_PF)
 
-
-#define SYST_CSR              0xE000E010u /* DDI0553 D1.2.241 */
-#define SYST_RVR              0xE000E014u  /* D1.2.243 */
-#define SYST_CVR              0xE000E018u /* D1.2.242 */
-#define SYST_CSR_COUNTFLAG    (1u << 16) /* bit 16, D1.2.241 */
-
-#define SCB_SHPR3_PRI15 	  0xE000ED23u /* DDI0553 D1.2.236 p.1847: SHPR3 = PRI_15 = bits 31:24 */
-#define SCB_SHPR3_PRI14 	  0xE000ED22u /* DDI0553 D1.2.236 p.1847: SHPR3 PRI_14 = bits 23:16 (PendSV) */
-#define SCB_ICSR 				0xE000ED04u /* DDI0553 D1.2.126 p.1675 */
-#define SCB_ICSR_PENDSVSET 		(1u << 28)  /* DDI0553 D1.2.126 p.1676: W1S, writes of 0 ignored */
-
-#define NVIC_ISER1              0xE000E104u /* DDI0553 D1.2.186 p.1770 */
-#define NVIC_ISPR1              0xE000E204u /* DDI0553 D1.2.187 p.1771-1772 */
-#define NVIC_ISER1_IRQ39_SET    (1u << 7)   /* DDI0553 D1.2.186 p.1770 */
-#define NVIC_ISPR1_IRQ39_SET    (1u << 7)   /* DDI0553 D1.2.187 p.1771-1772 */
+/* 7.0 Q3: 19200 baud = 48 MHz / ((15 + 1) x 156) = 19,230.77 (+0.16 %); OSR 28:24, SBR 12:0 */
+#define LPUART4_BAUD_19200    0x0F00009Cu
+/* 7.0 D2/D3 (RM 50.5.5.8 p.1879-1885): RIE 21, ILIE 20, TE 19, RE 18, IDLECFG 010 (4 idle chars)
+ * bits 10:8, M 4 = 9-bit (8 data + parity), ILT 2 = count after the stop bit, PE 1, PT 0 = even */
+#define LPUART4_CTRL_8E1_RX   ((1u << 21) | (1u << 20) | (1u << 19) | (1u << 18) | \
+                               (2u << 8) | (1u << 4) | (1u << 2) | (1u << 1))
 
 #define SCB_CCR 				0xE000ED14u /* DDI0553 D1.2.9 p.1471 */
 #define SCB_SHCSR 				0xE000ED24u /* DDI0553 D1.2.233 p.1836 */
@@ -89,23 +92,30 @@
 #define SCB_SHCSR_BUSFAULTENA_Msk (1u << 17) /* DDI0553 D1.2.233 p.1838 */
 #define SCB_BFAR				0xE000ED38u /* DDI0553 D1.2.6 p.1466 */
 #define SCB_CFSR_BFARVALID_Msk	(1u << 15) 	/* DDI0553 D1.2.11 p.1477 (BFSR = CFSR[15:8]) */
-
-#define MPU_CTRL 				0xE000ED94u // (D1.2.168 p.1743)
-#define MPU_RNR 				0xE000ED98u // (D1.2.175 p.1755)
-#define MPU_RBAR 				0xE000ED9Cu // (D1.2.171 p.1747)
-#define MPU_RLAR 				0xE000EDA0u // (D1.2.173 p.1751)
-#define MPU_MAIR0 				0xE000EDC0u // (D1.2.169 p.1745)
 #define SCB_MMFAR 				0xE000ED34u // (D1.2.166 p.1739)
 #define SCB_SHCSR_MEMFAULTENA_Msk (1u << 16) // (D1.2.233 p.1838)
 #define SCB_CFSR_MMFARVALID_Msk	(1u << 7)  	// (D1.2.167 p.1740, D1.2.11 p.1477)
-#define TASK_A_STACK_WORDS 		256u        /* 6.1: 1 KB, static in .bss; confirm against .su + high-water mark (6.3) */
-#define TASK_B_STACK_WORDS 		256u        /* 6.2: 1 KB; uart4_puts chain is shallow (.su) */
-#define TASK_A_PRIO 			1u          /* 6.2: producer */
-#define TASK_B_PRIO 			2u          /* 6.2: run 1 = 2 (above A); run 2 = 1 (equal to A) */
-#define Q_LEN 					4u          /* 6.2: queue depth, items of uint32_t */
-#define A_SPIN_TICKS 			3u          /* 6.2: A keeps the CPU this many ticks after each send */
 
-volatile uint32_t g_lpflexcomm4_irq_count;   /* .bss (zeroed by Reset_Handler .S lines 100–107); written by the IRQ 39 handler, read in main from 2.5c/d onward → volatile: main's reads must not be kept in a register. */
+#define NVIC_ISER1              0xE000E104u /* DDI0553 D1.2.186 p.1770 */
+#define NVIC_ISER1_IRQ39_SET    (1u << 7)   /* DDI0553 D1.2.186 p.1770 */
+#define NVIC_IPR9_PRI_N3        0xE000E427u /* 7.0 D9: IRQ 39 priority byte (D1.2.185 p.1769, RM Table 15) */
+#define IRQ39_PRIO              0x20u       /* 7.0 Q1: level 1 = MAX_SYSCALL; >= 0x20 passes port.c 2132 */
+
+#define DEMCR                   0xE000EDFCu /* 7.1: D1.2.37 p.1522, TRCENA bit 24 */
+#define DWT_CTRL                0xE0001000u /* 7.1: CYCCNTENA bit 0 */
+#define DWT_CYCCNT              0xE0001004u /* D1.2.59 p.1566 */
+
+#define TASK_A_STACK_WORDS 		256u        /* 6.1: 1 KB, static in .bss */
+#define TASK_MB_STACK_WORDS 	256u        /* 7.1: modbus task, 1 KB */
+#define TASK_A_PRIO 			1u          /* 6.1: counter */
+#define TASK_MB_PRIO 			2u          /* 7.1: above A, so a frame is answered at once */
+#define MB_FRAME_Q_LEN 			1u          /* 7.1: one frame in flight (D10) */
+#define MB_BUF_SIZE 			256u        /* 7.1: RTU frame max 256 B (Serial Line p.13) */
+#define MB_SLAVE_ADDR 			1u          /* 7.0 D5 */
+#define MB_NUM_REGS 			8u          /* 7.0 D5: holding registers 0-7 */
+#define MB_FRAME_BAD 			0x80000000u /* 7.1: queue item bit 31 = OR/NF/FE/PF or overflow seen */
+
+volatile uint32_t g_lpflexcomm4_irq_count;   /* .bss; IRQ 39 entries (7.1: every RX/idle interrupt) */
 
 unsigned int g_init = 0x12345678;   /* .data */
 unsigned int g_zero;                /* .bss  */
@@ -116,24 +126,41 @@ volatile uint8_t g_bfar_valid;
 volatile uint32_t g_mmfar = 0;
 volatile uint8_t g_mmfar_valid = 0;
 
-volatile uint32_t g_cnt_a;                 /* .bss; task_a loop count */
-volatile uint32_t g_cnt_b;                 /* .bss; 6.2: items task_b received */
-volatile uint32_t g_last_val;              /* .bss; 6.2: last item task_b received */
-volatile TickType_t g_send_tick;           /* .bss; 6.2: tick when A sent */
-volatile TickType_t g_recv_tick;           /* .bss; 6.2: tick when B got it */
+volatile uint32_t g_cnt_a;                 /* .bss; task_a loop count = holding register 0 */
 
 volatile uint32_t g_assert_line;           /* 6.1: set by configASSERT (FreeRTOSConfig.h) */
 const char * volatile g_assert_file;       /* 6.1: set by configASSERT */
 
+/* 7.1: Modbus counters and timing (read with GDB) */
+volatile uint32_t g_mb_rx_bytes;           /* bytes stored into s_rx_buf */
+volatile uint32_t g_mb_dropped;            /* bytes read while the task owned the buffer */
+volatile uint32_t g_mb_err_frames;         /* frames with OR/NF/FE/PF or > 256 B */
+volatile uint32_t g_mb_crc_bad;            /* frames with a wrong CRC */
+volatile uint32_t g_mb_other_addr;         /* good CRC, address not 0 or 1 */
+volatile uint32_t g_mb_ok;                 /* normal replies sent */
+volatile uint32_t g_mb_exc;                /* exception replies sent */
+volatile uint32_t g_mb_last_stat;          /* STAT at the last error */
+volatile uint32_t g_mb_cyc_last_byte;      /* CYCCNT when the last byte of a frame was read */
+volatile uint32_t g_mb_cyc_idle;           /* CYCCNT when IDLE was seen */
+volatile uint32_t g_mb_cyc_reply;          /* CYCCNT when the first reply byte was written */
+volatile uint16_t g_mb_crc_rx;             /* CRC field of the last good-CRC request (low byte first) */
+volatile uint16_t g_mb_regs_rw[4];         /* holding registers 4-7, scratch */
+
 static StaticTask_t s_task_a_tcb;                       /* 6.1: task A TCB, .bss (D3 = T) */
 static StackType_t  s_task_a_stack[TASK_A_STACK_WORDS]; /* 6.1: task A stack, .bss */
-static StaticTask_t s_task_b_tcb;                       /* 6.2: task B TCB, .bss */
-static StackType_t  s_task_b_stack[TASK_B_STACK_WORDS]; /* 6.2: task B stack, .bss */
-static StaticQueue_t s_q_struct;                        /* 6.2: queue control block, .bss */
-static uint8_t      s_q_storage[Q_LEN * sizeof(uint32_t)]; /* 6.2: queue item storage, .bss */
-static QueueHandle_t s_q;                               /* 6.2: handle (= &s_q_struct) */
+static StaticTask_t s_task_mb_tcb;                      /* 7.1: modbus task TCB */
+static StackType_t  s_task_mb_stack[TASK_MB_STACK_WORDS]; /* 7.1: modbus task stack */
+static StaticQueue_t s_frame_q_struct;                  /* 7.1: frame-length queue control block */
+static uint8_t      s_frame_q_storage[MB_FRAME_Q_LEN * sizeof(uint32_t)];
+static QueueHandle_t s_frame_q;                         /* 7.1: ISR -> modbus task */
 static StaticTask_t s_idle_tcb;                         /* 6.1: idle task TCB, .bss */
 static StackType_t  s_idle_stack[configMINIMAL_STACK_SIZE]; /* 6.1: idle task stack, .bss */
+
+static uint8_t s_rx_buf[MB_BUF_SIZE];      /* 7.1: request bytes (D10) */
+static volatile uint32_t s_rx_len;         /* 7.1: bytes in s_rx_buf */
+static volatile uint32_t s_rx_bad;         /* 7.1: error seen in this frame */
+static volatile uint32_t s_rx_owned;       /* 7.1: 1 = modbus task owns s_rx_buf, ISR drops bytes */
+static uint8_t s_tx_buf[MB_BUF_SIZE];      /* 7.1: reply bytes */
 
 /* 6.0 D5 = N: -nostdlib kept, so the kernel's memset/memcpy (12 calls) and any
  * GCC-emitted ones resolve here. Byte loops; the attribute stops GCC turning
@@ -174,28 +201,72 @@ static void uart4_putc(char c)
 	REG32(LPUART4_DATA) = (uint32_t)(unsigned char)c;
 }
 
-static void uart4_puts(const char *s)
+/* 7.1: CRC-16/Modbus, Serial Line V1.02 p.39: init 0xFFFF, LSB first, poly 0xA001.
+ * Returned value: low byte = first byte on the wire (p.15: low-order byte appended first). */
+static uint16_t mb_crc16(const uint8_t *p, uint32_t n)
 {
-    while (*s != '\0') {     /* stop at the null terminator */
-        uart4_putc(*s);      /* emit the current character   */
-        s++;                 /* advance to the next one      */
-    }
+	uint16_t crc = 0xFFFFu;
+	while (n-- != 0u)
+	{
+		crc ^= *p++;
+		for (uint32_t b = 0u; b < 8u; b++)
+		{
+			if ((crc & 1u) != 0u) { crc = (uint16_t)((crc >> 1) ^ 0xA001u); }
+			else                  { crc = (uint16_t)(crc >> 1); }
+		}
+	}
+	return crc;
 }
 
-static void uart4_put_u32(uint32_t v)   /* 6.2: decimal, no printf (-nostdlib) */
-{
-	char buf[11];
-	uint32_t i = 0u;
-	do { buf[i++] = (char)('0' + (v % 10u)); v /= 10u; } while (v != 0u);
-	while (i != 0u) { uart4_putc(buf[--i]); }
-}
-
-/* 2.5a: IRQ39, vector 55 (Table 15 p.33).
- * Weak alias in startup_m33.S overridden by this strong definition;
- * no FP, no peripheral access — main and GDB reads the counter after the run. */
+/* 7.1: D10 — RX byte(s) and end of frame by idle line. IRQ 39 at 0x20 (D9) so the FromISR
+ * call passes port.c 2132. STAT is RW but its config bits (MSBF, RXINV, RWUID, BRK13, LBKDE)
+ * stay 0 here, so writing only W1C flags back changes nothing else. */
 void LP_FLEXCOMM4_IRQHandler(void)
 {
-    g_lpflexcomm4_irq_count++;
+	BaseType_t woken = pdFALSE;
+	uint32_t stat = REG32(LPUART4_STAT);
+
+	g_lpflexcomm4_irq_count++;
+
+	if ((stat & LPUART4_STAT_ERR) != 0u)
+	{
+		g_mb_last_stat = stat;
+		s_rx_bad = 1u;
+		REG32(LPUART4_STAT) = stat & LPUART4_STAT_ERR;   /* W1C the error flags only */
+	}
+
+	while ((REG32(LPUART4_STAT) & LPUART4_STAT_RDRF) != 0u)
+	{
+		uint8_t byte = (uint8_t)REG32(LPUART4_DATA);     /* reading DATA clears RDRF; parity not in [7:0] */
+		g_mb_cyc_last_byte = REG32(DWT_CYCCNT);
+		if (s_rx_owned != 0u)
+		{
+			g_mb_dropped++;
+		}
+		else if (s_rx_len < MB_BUF_SIZE)
+		{
+			s_rx_buf[s_rx_len++] = byte;
+			g_mb_rx_bytes++;
+		}
+		else
+		{
+			s_rx_bad = 1u;                                /* > 256 B: not a Modbus frame */
+		}
+	}
+
+	if ((stat & LPUART4_STAT_IDLE) != 0u)
+	{
+		REG32(LPUART4_STAT) = LPUART4_STAT_IDLE;          /* W1C */
+		g_mb_cyc_idle = REG32(DWT_CYCCNT);
+		if ((s_rx_owned == 0u) && (s_rx_len != 0u))
+		{
+			uint32_t item = s_rx_len | ((s_rx_bad != 0u) ? MB_FRAME_BAD : 0u);
+			s_rx_owned = 1u;
+			(void)xQueueSendFromISR(s_frame_q, &item, &woken);
+		}
+	}
+
+	portYIELD_FROM_ISR(woken);
 }
 
 void UsageFault_Handler(void)
@@ -240,38 +311,163 @@ void MemManage_Handler(void)
 	{}
 }
 
-static void task_a(void *pv)                /* 6.1: LED every 500 ms; 6.2: producer */
+static void task_a(void *pv)                /* 6.1: LED every 500 ms; 7.1: counter only (LED = register 1) */
 {
 	(void)pv;
 	for (;;)
 	{
 		g_cnt_a++;
-		REG32(GPIO4_PTOR) = (1u << 18);        /* toggle red LED P4_18 */
-		uint32_t v = g_cnt_a;
-		g_send_tick = xTaskGetTickCount();
-		(void)xQueueSend(s_q, &v, 0u);         /* copy 4 B into the queue (memcpy); may switch to B here */
-		TickType_t t0 = xTaskGetTickCount();
-		while ((xTaskGetTickCount() - t0) < A_SPIN_TICKS) { }  /* stay Ready + running, no block */
-		vTaskDelay(pdMS_TO_TICKS(500u));        /* block 500 ticks -> idle runs */
+		vTaskDelay(pdMS_TO_TICKS(500u));
 	}
 }
 
-static void task_b(void *pv)                /* 6.2: consumer: block on the queue, print */
+/* 7.0 D5: 0 g_cnt_a low 16 bits RO, 1 LED P4_18 RW (1 = on), 2/3 tick low/high RO, 4-7 scratch RW */
+static uint16_t mb_reg_read(uint32_t r)
+{
+	TickType_t t;
+	switch (r)
+	{
+	case 0u: return (uint16_t)g_cnt_a;
+	case 1u: return ((REG32(GPIO4_PDOR) & (1u << 18)) == 0u) ? 1u : 0u;   /* active-low LED */
+	case 2u: t = xTaskGetTickCount(); return (uint16_t)(t & 0xFFFFu);
+	case 3u: t = xTaskGetTickCount(); return (uint16_t)(t >> 16);
+	default: return g_mb_regs_rw[r - 4u];
+	}
+}
+
+static uint32_t mb_reg_writable(uint32_t r)  /* 7.0 D12: 0, 2, 3 read-only */
+{
+	return ((r == 1u) || (r >= 4u)) ? 1u : 0u;
+}
+
+static void mb_reg_write(uint32_t r, uint16_t v)
+{
+	if (r == 1u)
+	{
+		if (v != 0u) { REG32(GPIO4_PCOR) = (1u << 18); }   /* low = LED on */
+		else         { REG32(GPIO4_PSOR) = (1u << 18); }   /* high = LED off */
+	}
+	else
+	{
+		g_mb_regs_rw[r - 4u] = v;
+	}
+}
+
+static void mb_send(uint8_t *buf, uint32_t n)  /* appends the CRC, low byte first, polled TX */
+{
+	uint16_t crc = mb_crc16(buf, n);
+	buf[n]      = (uint8_t)(crc & 0xFFu);
+	buf[n + 1u] = (uint8_t)(crc >> 8);
+	g_mb_cyc_reply = REG32(DWT_CYCCNT);
+	for (uint32_t i = 0u; i < n + 2u; i++)
+	{
+		uart4_putc((char)buf[i]);
+	}
+}
+
+static uint32_t mb_exception(uint8_t fc, uint8_t code)  /* 7.0 D6: App. Protocol p.15, p.48 */
+{
+	s_tx_buf[0] = MB_SLAVE_ADDR;
+	s_tx_buf[1] = (uint8_t)(fc | 0x80u);
+	s_tx_buf[2] = code;
+	return 3u;
+}
+
+/* n = request length including the 2 CRC bytes. Returns the reply length without CRC (0 = no reply). Order of checks = App. Protocol
+ * state diagrams: function code (01), quantity / value (03), address (02). */
+static uint32_t mb_process(const uint8_t *rq, uint32_t n)
+{
+	uint8_t  fc    = rq[1];
+	uint32_t start = ((uint32_t)rq[2] << 8) | rq[3];
+	uint32_t qty   = ((uint32_t)rq[4] << 8) | rq[5];
+
+	if (fc == 0x03u)                                        /* p.15 Read Holding Registers */
+	{
+		if (n != 8u) { return 0u; }                         /* malformed: no reply */
+		if ((qty < 1u) || (qty > 125u)) { return mb_exception(fc, 0x03u); }
+		if ((start + qty) > MB_NUM_REGS) { return mb_exception(fc, 0x02u); }
+		s_tx_buf[0] = MB_SLAVE_ADDR;
+		s_tx_buf[1] = fc;
+		s_tx_buf[2] = (uint8_t)(qty * 2u);
+		for (uint32_t i = 0u; i < qty; i++)
+		{
+			uint16_t v = mb_reg_read(start + i);
+			s_tx_buf[3u + 2u * i]      = (uint8_t)(v >> 8);  /* big-endian, p.5 */
+			s_tx_buf[3u + 2u * i + 1u] = (uint8_t)(v & 0xFFu);
+		}
+		return 3u + 2u * qty;
+	}
+	if (fc == 0x06u)                                        /* p.19 Write Single Register */
+	{
+		if (n != 8u) { return 0u; }
+		if ((start >= MB_NUM_REGS) || (mb_reg_writable(start) == 0u)) { return mb_exception(fc, 0x02u); }
+		mb_reg_write(start, (uint16_t)qty);                 /* bytes 4-5 = value */
+		for (uint32_t i = 0u; i < 6u; i++) { s_tx_buf[i] = rq[i]; }   /* echo */
+		return 6u;
+	}
+	if (fc == 0x10u)                                        /* p.30 Write Multiple Registers */
+	{
+		if (n < 9u) { return 0u; }
+		uint32_t bc = rq[6];
+		if ((qty < 1u) || (qty > 123u) || (bc != qty * 2u)) { return mb_exception(fc, 0x03u); }
+		if (n != 9u + bc) { return 0u; }
+		if ((start + qty) > MB_NUM_REGS) { return mb_exception(fc, 0x02u); }
+		for (uint32_t i = 0u; i < qty; i++)
+		{
+			if (mb_reg_writable(start + i) == 0u) { return mb_exception(fc, 0x02u); }
+		}
+		for (uint32_t i = 0u; i < qty; i++)
+		{
+			mb_reg_write(start + i, (uint16_t)(((uint32_t)rq[7u + 2u * i] << 8) | rq[8u + 2u * i]));
+		}
+		for (uint32_t i = 0u; i < 6u; i++) { s_tx_buf[i] = rq[i]; }   /* addr, fc, start, qty */
+		return 6u;
+	}
+	return mb_exception(fc, 0x01u);                         /* p.48 ILLEGAL FUNCTION */
+}
+
+static void task_modbus(void *pv)           /* 7.1: replaces 6.2 task_b */
 {
 	(void)pv;
 	for (;;)
 	{
-		uint32_t v;
-		if (xQueueReceive(s_q, &v, portMAX_DELAY) == pdPASS)
+		uint32_t item;
+		if (xQueueReceive(s_frame_q, &item, portMAX_DELAY) == pdPASS)
 		{
-			g_recv_tick = xTaskGetTickCount();
-			g_cnt_b++;
-			g_last_val = v;
-			uart4_puts("B got ");
-			uart4_put_u32(v);
-			uart4_puts(" dt=");
-			uart4_put_u32((uint32_t)(g_recv_tick - g_send_tick));
-			uart4_puts("\r\n");
+			uint32_t n = item & ~MB_FRAME_BAD;
+			if ((item & MB_FRAME_BAD) != 0u)
+			{
+				g_mb_err_frames++;                          /* D10: no reply */
+			}
+			else if ((n < 4u) || (mb_crc16(s_rx_buf, n) != 0u))
+			{
+				g_mb_crc_bad++;                             /* CRC over data + CRC field = 0 */
+			}
+			else
+			{
+				uint8_t addr = s_rx_buf[0];
+				g_mb_crc_rx = (uint16_t)(s_rx_buf[n - 2u] | ((uint16_t)s_rx_buf[n - 1u] << 8));
+				if (addr == MB_SLAVE_ADDR)
+				{
+					uint32_t len = mb_process(s_rx_buf, n);   /* n includes the 2 CRC bytes */
+					if (len != 0u)
+					{
+						if ((s_tx_buf[1] & 0x80u) != 0u) { g_mb_exc++; } else { g_mb_ok++; }
+						mb_send(s_tx_buf, len);
+					}
+				}
+				else if ((addr == 0u) && ((s_rx_buf[1] == 0x06u) || (s_rx_buf[1] == 0x10u)))
+				{
+					(void)mb_process(s_rx_buf, n);          /* D11: broadcast write, no reply */
+				}
+				else
+				{
+					g_mb_other_addr++;
+				}
+			}
+			s_rx_len = 0u;
+			s_rx_bad = 0u;
+			s_rx_owned = 0u;                                /* hand the buffer back to the ISR */
 		}
 	}
 }
@@ -308,38 +504,29 @@ int main(void)
 	 * RM 50.5.5.6 p.1871: BAUD[SBR12:SBR0] may only be changed while both
 	 * CTRL[RE] and CTRL[TE] are 0 — so program BAUD before enabling CTRL
 	 */
-
-	REG32(LPUART4_BAUD)   = (1u << 1)  | (1u << 3)  | (1u << 4)  |
-	                        (1u << 24) | (1u << 25) | (1u << 26) | (1u << 27);
-
-	REG32(LPUART4_CTRL)   = (1u << 19);
+	REG32(LPUART4_BAUD)   = LPUART4_BAUD_19200;   /* 7.1: was 0x0F00_001A (115200) */
+	REG32(LPUART4_CTRL)   = LPUART4_CTRL_8E1_RX;  /* 7.1: was (1u << 19) = 8N1 TE only */
 
 	REG32(SCB_CCR) = 0x00000201u; /* D1.2.9 p.1474: 3.0 measured 0x201; UNALIGN_TRP = 0 */
 	REG32(SCB_SHCSR) = REG32(SCB_SHCSR) | SCB_SHCSR_USGFAULTENA_Msk | SCB_SHCSR_BUSFAULTENA_Msk | SCB_SHCSR_MEMFAULTENA_Msk; /* p. 1836: D1.2.233 p. 1836 explicitly recommends using a read-modify-write sequence for SHCSR to preserve active and pending status bits while modifying enable flags. */
+	REG32(DEMCR)    = REG32(DEMCR) | (1u << 24);   /* 7.1: TRCENA, so CYCCNT runs without a debugger */
+	REG32(DWT_CTRL) = REG32(DWT_CTRL) | 1u;        /* 7.1: CYCCNTENA */
 	__asm__ volatile ("dsb":::"memory"); // RSJQJ p.222 / RBMLS p.268
 	__asm__ volatile ("isb":::"memory"); // RNPDJ / RHMNM p.222, RWQQB p.268
 
 	/* 6.1: PendSV/SysTick priorities and SysTick itself are now set by the port
 	 * (port.c 1818/1819, vPortSetupTimerInterrupt) inside vTaskStartScheduler. */
-	uart4_puts("Hello\r\n");
 
-	REG32(NVIC_ISER1) = NVIC_ISER1_IRQ39_SET; // W1S write (DDI0553 D1.2.186 p.1770)
-	REG32(NVIC_ISPR1) = NVIC_ISPR1_IRQ39_SET; // W1S write (DDI0553 D1.2.187 p.1771-1772)
-	__asm__ volatile ("dsb" : : : "memory"); // Ensure SCS write completion (RSJQJ/RNPDJ p.222)
-	__asm__ volatile ("isb" : : : "memory"); // Context synchronization event for visibility (RWQQB p.268)
-
-	if (g_lpflexcomm4_irq_count > 0) {
-		uart4_puts("IRQ 39 taken\r\n");
-	} else {
-		uart4_puts("IRQ 39 not taken yet\r\n");
-	}
-	/* 6.2: static queue first, then A (prio 1) and B (TASK_B_PRIO), then hand the CPU to FreeRTOS */
-	s_q = xQueueCreateStatic(Q_LEN, sizeof(uint32_t), s_q_storage, &s_q_struct);
+	/* 7.1: queue before the IRQ can use it; IRQ 39 at 0x20 (D9) before enabling it */
+	s_frame_q = xQueueCreateStatic(MB_FRAME_Q_LEN, sizeof(uint32_t), s_frame_q_storage, &s_frame_q_struct);
 	(void)xTaskCreateStatic(task_a, "TaskA", TASK_A_STACK_WORDS, NULL, TASK_A_PRIO,
 	                        s_task_a_stack, &s_task_a_tcb);
-	(void)xTaskCreateStatic(task_b, "TaskB", TASK_B_STACK_WORDS, NULL, TASK_B_PRIO,
-	                        s_task_b_stack, &s_task_b_tcb);
-	uart4_puts("Scheduler start\r\n");
+	(void)xTaskCreateStatic(task_modbus, "Modbus", TASK_MB_STACK_WORDS, NULL, TASK_MB_PRIO,
+	                        s_task_mb_stack, &s_task_mb_tcb);
+	REG8(NVIC_IPR9_PRI_N3) = IRQ39_PRIO;         /* byte access allowed (D1.2.185 p.1769) */
+	REG32(NVIC_ISER1) = NVIC_ISER1_IRQ39_SET;    /* W1S write (DDI0553 D1.2.186 p.1770) */
+	__asm__ volatile ("dsb" : : : "memory");     /* RSJQJ p.222 */
+	__asm__ volatile ("isb" : : : "memory");     /* RWQQB p.268 */
 	vTaskStartScheduler();                   /* does not return: MSP reset, svc 102, first task */
 
 	for (;;) {
