@@ -5338,3 +5338,98 @@ Design additions proposed (D9-D12, answer owed): D9 IPR9 PRI_N3 = 0x20; D10 one 
   (0, 2, 3) -> exception 02; FC 03 quantity 1-125 and FC 16 quantity 1-123 else exception 03.
   Gap stated: t1.5 (859 us) inter-character timeout not detected (IDLE needs 4 chars) — a
   frame with a 1.5-3.5 char gap is caught only by the CRC.
+### 7.1 issued — session 29, 2026-11-25 15:12 (D9-D12 accepted: "go")
+7.0 D1-D12 accepted as proposed (user "go", 15:12; model answers + plain-words versions of Q1-Q4
+  given at 14:49 on request).
+Files (tutor-drafted, lighter format):
+  source/frdmmcxn236_m33_scratch.c 534 lines CRLF sha256
+  b79ffa48e95fbb2fa2d55ae47bc61e09092ba4eecac3136cf3486de79e07dcdb md5 d8bb234163267cb121298276f8b8c56d
+  (diff vs 6.2: +286 / -99). Changes: BAUD 0x0F00_009C (19200), CTRL 0x003C_0216 (RIE 21, ILIE 20,
+  TE 19, RE 18, IDLECFG 010, M 1, ILT 1, PE 1, PT 0); LP_FLEXCOMM4_IRQHandler = RX bytes into
+  s_rx_buf[256], OR/NF/FE/PF W1C -> frame bad, IDLE W1C -> xQueueSendFromISR(len | bad bit 31) +
+  portYIELD_FROM_ISR, buffer owned by the task until the reply is sent (bytes dropped meanwhile);
+  task_modbus (prio 2, replaces task_b): CRC-16 (init 0xFFFF, poly 0xA001, full-frame CRC = 0),
+  address 1 -> mb_process (FC 03/06/16, checks in App. Protocol state-diagram order 01 -> 03 -> 02;
+  wrong request length -> no reply), address 0 + FC 06/16 -> execute, no reply, other -> count;
+  reply by polled uart4_putc with CRC low byte first; task_a only counts (LED now = register 1);
+  IPR9 PRI_N3 0xE000E427 = 0x20 + ISER1 bit 7 after the tasks are created (BASEPRI 0x20 from the
+  first critical section masks IRQ 39 until the first task runs — port.c 556 ulCriticalNesting
+  0xaaaaaaaa, inference); DEMCR TRCENA + DWT_CTRL CYCCNTENA set in main (CYCCNT without debugger);
+  counters g_mb_* and CYCCNT stamps (last byte, idle, reply) for GDB. Removed: every UART print,
+  the IRQ 39 test pend, uart4_puts, uart4_put_u32, 6.2 queue + task_b + its globals, unused
+  macros (GPIO4_PTOR, LPUART4_DATARO, SYST_*, SCB_SHPR3_*, SCB_ICSR*, NVIC_ISPR1*, MPU_*).
+  .S, .ld, FreeRTOSConfig.h unchanged.
+  tools/mb_master.py 168 lines LF sha256 4c73c3a1ab4b671fb09b8cec1ee3c45f0e89bd79e5f8a2a95b840e25caad8551
+  (pymodbus 3.16.2 ModbusSerialClient 19200 8E1, device_id=1, retries 0; modes demo / read / write
+  / writem / raw [--nocrc|--badcrc]; demo T1-T12 = reads, LED off/on, FC16, reg 8, RO write, the two
+  7.0 Q4 requests, bad CRC, address 2, FC 04, quantity 0, broadcast).
+Tutor checks: trial build arm-none-eabi-gcc 13.2.1 (newlib headers, -O0 -g3 -Wall -fno-builtin
+  -fstack-usage, -nostdlib --gc-sections --sort-section=alignment, our .ld): 0 warnings, text 10364
+  data 8 bss 3680 (same toolchain on the 6.2 source: text 9104 data 8 bss 3128; the IDE's GCC 14.2.1
+  gave 9018 for 6.2 — sizes differ by compiler); slot 55 = LP_FLEXCOMM4_IRQHandler | 1; .su ISR 24,
+  mb_process 56, task_modbus 32. Host test of the frame logic: found and fixed a length bug before
+  issue (task passed n - 2, mb_process checks n with CRC); then all 12 demo cases against a
+  simulated slave on a socat pty pair (parity off on the pty) gave the designed replies.
+Next: install + hash + git diff + Select-String, then ONE prediction message R1-R8 before the build.
+### 7.1 predictions LOCKED — session 29, 2026-11-26 12:19 (before build)
+R1 FLASH Used 9828 (6.2 9028 = 9018 + 8 + 2 pad, + 800 B net .text/.rodata).
+R2 LP_FLEXCOMM4_IRQHandler 0x0000_0180, .isr_vector word at 0xDC 0x0000_0181 (6.2 handler 0x14C
+  after uart4_putc 0xE0 + 0x6C, shifted +0x34).
+R3 BAUD 0x0F00_009C, CTRL 0x003C_0216 (main writes, no later writes).
+R4 IPR9 PRI_N3 0x20 (main REG8 write; bits 4:0 RAZ/WI, 2.2a).
+R5 T7: 01 03 04 12 34 00 00 A3 D5 and 01 83 02 C0 F1.
+R6 g_mb_ok 10, g_mb_exc 3, g_mb_crc_bad 0, g_mb_other_addr 1 (per-request list T1..T12b + read 0 1;
+  "ok + exc = 13 prior to the 14th mb_send entry").
+R7 g_mb_cyc_idle - g_mb_cyc_last_byte = 109,824 (4 x 11 bits x 2496 cycles/bit).
+R8 LED off from T2 until T3 turns it on; g_assert_line 0.
+Lock flags (contradictions / form only; no addendum sent at lock time):
+  R1 "+800 B net" is an estimate, not a per-function count.
+  R2 0x14C / uart4_putc 0xE0 + 0x6C are image-3.x/4.x addresses (log: uart4_putc 0xE0 size 0x34,
+     LP_FLEXCOMM4 0x14C on images 2.5a-4.3), not image 6.2.
+  R3/R4/R5/R7/R8 cite "frdmmcxn236_m33_scratch_2.c" / "learning_log_2.md" — not our file names.
+  R5 cites mb_master.py lines 121-122 (= T6); T7 is lines 125-127.
+  R6 the four values do not match the row's own per-request list (recount it), and "13 prior to
+     the 14th" contradicts the row definition (.c 455 increments before mb_send at 456).
+Addendum accepted until the build is started.
+### 7.1 measured + graded — 7.1 CLOSED — session 29, 2026-11-26 13:52: 3¾/8
+Build (IDE GCC 14.2.1, 12:38): 0 errors / 0 warnings; FLASH 10288 B (text 10279 + data 8 + 1 pad),
+  RAMB 3688 B; size text 10279 data 8 bss 3680 (6.2: 9018 / 8 / 3128). IDE link order (line 40):
+  port.o portasm.o list.o queue.o tasks.o frdmmcxn236_m33_scratch.o startup_m33.o -> kernel first
+  in each alignment group. nm: LP_FLEXCOMM4_IRQHandler 0x1A80 (0x13C), mb_send 0x1D64 (0x74),
+  task_modbus 0x206C (0x130); g_mb_rx_bytes 0x2000_8104 ... g_mb_regs_rw 0x2000_8130,
+  g_mb_crc_rx 0x2000_8E60. .isr_vector: slot 55 (0xDC) 0x1A81, slot 11 0x65D, 14 0x5FD, 15 0x229,
+  defaults 0x23A5, word0 0x2001_0000, word1 0x2351.
+Run (13:25-13:52): Temporary breakpoint 1 at main line 477 (pc 0x21A2); break mb_send -> bp 2 at
+  0x1D6E (line 358), ignore 13; continue; demo + read 0 1 from PowerShell (venv pymodbus 3.16.2).
+  COM3 19200 8E1 works through the MCU-Link VCOM (open question closed).
+  Demo: T1 regs 0x0152 0x0001 0x9374 0x0002 0 0 0 0 (g_cnt_a 338, tick 0x0002_9374 = 168,820 ->
+  338 x 500 ms consistent); T2 write 0 -> read-back reg1 0x0000; T3 write 1; T4 writem ok, read
+  0x1234 0x0000; T5 reg 8 -> exception 2 (fc 131); T6 write reg 0 -> exception 2 (fc 134);
+  T7 RX 01 03 04 12 34 00 00 BE 85 and 01 83 02 C0 F1; T8 bad CRC -> nothing in 300 ms; T9 address 2
+  -> nothing; T10 FC04 -> 01 84 01 82 C0; T11 quantity 0 -> 01 83 03 01 31; T12 broadcast -> nothing,
+  then read reg 5 -> 01 03 02 00 55 78 7B. First reply byte 137-192 ms after flush (inference:
+  GDB's ignore count halts and resumes the core at every mb_send hit; not the slave's latency).
+  read 0 1 -> NO REPLY (board halted in mb_send, as planned).
+  At bp 2 (14th hit): pc 0x1D6E, buf = s_tx_buf 0x2000_8D60 "01 03 02 02 0C" n 5 (reg0 = 524);
+  BAUD 0x0F00_009C, CTRL 0x003C_0216, IPR9 PRI_N3 0x20; g_mb_ok 9, g_mb_exc 5, g_mb_crc_bad 1,
+  g_mb_other_addr 1, g_mb_err_frames 0, g_mb_dropped 0, g_mb_rx_bytes 141 (16 x 8 + 13 = 17
+  frames), g_lpflexcomm4_irq_count 158 (= 141 RDRF + 17 IDLE: one interrupt per byte, IDLE
+  separate), g_mb_cyc_idle - g_mb_cyc_last_byte 109,820 (44 bit x 2496 = 109,824 - 4),
+  g_mb_regs_rw {0x1234, 0x55, 0, 0} (broadcast write executed), g_assert_line 0, basepri_s 0.
+  LEDs: D13 red ON at the end (reg1 = 1 after T3); D13 not watched during T2 (off state inferred
+  from the T2 read-back); D3 green (3V3), D6 green (USB_ACTIVE) ON; a blinking red LED = MCU-Link
+  heartbeat, D7 ISP_EN per UM12041 Table 31 p.35 (user named it D8; D8 is green VCOM_ACTIVE).
+Grades: R1 0 (9828 vs 10288: +1261 B text not counted; "+800 net" estimate); R2 0 (0x180/0x181 vs
+  0x1A80/0x1A81: base 0x14C from images <= 4.3; IDE link order puts the kernel first); R3 3/4
+  (both words right; source "frdmmcxn236_m33_scratch_2.c" not our file); R4 3/4 (right; same name
+  slip); R5 1/2 (second line right; first CRC A3 D5 vs BE 85 — the p.39 algorithm was not
+  back-checked); R6 1/4 (other_addr 1 right; ok 10 / exc 3 / crc_bad 0 vs 9 / 5 / 1 — contradicted
+  the row's own list, flagged at lock, no addendum); R7 3/4 (109,824 vs 109,820, derivation right;
+  name slip); R8 3/4 (g_assert_line 0 right, LED path right but not observed; name slip).
+Proof targets met: PC master reads/writes registers; CRC checked both ways (bad CRC ignored,
+  every reply CRC ok); illegal address -> exception 02; idle-line frame end measured in CYCCNT
+  (109,820 cycles = 2.288 ms after the last byte vs t3.5 2.005 ms).
+Weak points (7.1): lock flags left unanswered again (R6 own-list contradiction, R2 base image);
+  file names with "_2"; sizes estimated; link order not read from the build line.
+Strengths: R7 derivation within 4 cycles; R3/R4 composed words exact; second CRC exact; T-list
+  walk for R6 itself was right.
