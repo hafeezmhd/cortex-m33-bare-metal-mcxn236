@@ -5577,3 +5577,20 @@ Pattern: values and mechanisms mostly right; nearly every line number wrong by 2
 Note: the 7.2 R2 lock flag called "Session 13 theory Q&A" a placeholder; the block exists (Theory
   Q&A during 2.5c-1 composition, session 13, line 1441) — tutor correction: the source was real but
   named without the heading; a full heading would have avoided the flag.
+### Phase 7 closed — Field Guide Phases 0-7 — session 30, 2026-11-27 12:29 ("go")
+Plain-words model answers to the self-test given on request (11:45).
+Field Guide doc 8724fa96 rev 64 -> rev 72 (heading "M33 Field Guide: Phases 0-7 in Plain Words",
+  intro "end of Phase 7 (sessions 1-30)"): four new sections after "Stack use" — "A Modbus slave on
+  the VCOM (Phase 7)" (path PC -> VCOM -> LPUART4 -> ISR -> queue -> task, settings table, the
+  BE 85 / FA 33 replies), "Where a frame ends: the quiet line" (IDLECFG 010 + ILT, 109,820 cycles,
+  one interrupt per byte + IDLE, pause-inside-a-frame table 1.5 / 2 / 5 chars, t1.5 gap),
+  "The interrupt hands the frame to a task" (0x20 vs assert port.c 2132, yield vs next tick
+  tasks.c 5449/5458/4914, 4,348 cycles, buffer ownership, CRC residue 0), "What a breakpoint costs
+  (7.2)" (A/B/C table, ~180 ms per ignored hit, CYCCNT stops when halted, A's 7.8 ms split);
+  Lessons "Phase 7 additions" (7 items) + self-test line; Quick reference "Phase 7 numbers"
+  (11 rows); Still open "Phase 7 open" (4 items). The doc-list title could not be changed by the
+  tool (rename it on claude.ai: still "Phases 0-5" there).
+PHASE 7 CLOSED (2026-11-27, on plan): 7.0 3/4, 7.1 3 3/4 of 8, 7.2 0/3, self-test 1.85/3.
+Next: Phase 8 CAN — 8.0 paper (FlexCAN bit timing for 500 kbit/s from our clock, one TX mailbox +
+  one RX mailbox/filter, clocks/pins CAN1 P4_15/P4_16, FRDM-side termination on schematic sheet
+  SENSOR_CAN_QSPI before any wiring).
