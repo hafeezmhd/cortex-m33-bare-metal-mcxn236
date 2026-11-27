@@ -5545,3 +5545,35 @@ Q3 debugger and CRC: (a) why 7.2 C shows bp 3 "hit 6 times" and why the ~180 ms 
   does not appear in g_mb_cyc_reply - g_mb_cyc_idle; (b) back-check the 7.2 reply 01 03 04 00 00 00
   00 FA 33 by the p.39 algorithm (value of crc16 over all 9 bytes, and the .c line that uses it),
   and say why 7.1 T7 ended BE 85 for the same request.
+### Phase 7 self-test graded — session 30, 2026-11-27 11:38: 1.85/3
+Q1 0.75: (a) reply none, irq +10 (8 RDRF + 2 IDLE), rx_bytes +8, crc_bad +2, ok +0 all right;
+  buffer free before byte 5 right (IDLE 4 chars after byte 4, byte 5 RDRF ~2 chars = 54,912 cycles
+  later vs 4348 measured slave time). mb_crc16 values wrong: 0x7557 / 0x933D vs 0x1BF0 (01 03 00 04)
+  / 0x2343 (00 02 85 CA) — CRC not back-checked (3rd time: 7.1 R5, 7.2 R1 reply bytes). Lines: CTRL
+  macro is .c 85-86 (96-98 = MMFAR macros); irq_count ++ 229, IDLE test 257, rx_bytes 249,
+  crc_bad 442/444, ok 455 (cited 232/259/251/447-449/459); IDLECFG is RM p.1884 (p.1885 = ILT).
+  (b) 01 03 04 00 00 00 00 FA 33 right; t1.5 rule Serial Line V1.02 p.13 quoted verbatim (checked
+  with pdftotext).
+Q2 0.6: (a) chain shape, g_assert_line 2132, no reply, task_a stops (PRIMASK 1 in Handler mode)
+  right. Lines wrong: xQueueGenericSendFromISR queue.c 1160 (cited 969), assert macro queue.c 1189
+  (log 7.0; cited 994); FreeRTOSConfig.h configASSERT 73-81 (cpsid 76, file 77, line 78, loop 79;
+  cited 61-69), MAX_SYSCALL line 55 (cited 47 = SECURE_ONLY). (b) mechanism right (unblocked task
+  prio 2 > idle 0 -> xYieldPendings[0] = pdTRUE; next SysTick -> xTaskIncrementTick sees it ->
+  xSwitchRequired -> PendSV) and worst case 48,000 cycles right. Lines wrong throughout (V11.2.0,
+  tutor-checked): queue.c 1279/1281 (cited 1058/1060), xTaskRemoveFromEventList tasks.c 5394 with
+  the priority test 5449 and xYieldPendings 5458 (cited 3666/3712-3722), xTaskIncrementTick 4725
+  with the check 4914/4916 (cited 3183/3333/3335), prvIdleTask 5801 (cited 4066);
+  configIDLE_SHOULD_YIELD is FreeRTOSConfig.h 20 (cited 19), TASK_MB_PRIO .c 111 (cited 104).
+Q3 0.5: (a) "hit 6 times" wrong: answered from the 7.1 demo (T1-T4, g_mb_ok 6); in 7.2 bp 3 was set
+  at the B halt in mb_exception, so 6 = 1 exception reply on that continue + 5 requests (g_mb_ok 10
+  measured). CYCCNT part right, both log quotes genuine (1d.4 line 485; Theory Q&A 2.5c-1 line
+  1441). g_mb_cyc_reply is .c 361 (cited 360). (b) crc over 9 bytes 0x0000 right (CRC of 7 bytes
+  0x33FA), BE 85 explanation right (T4 wrote 0x1234 before T7; CRC 0x85BE). Lines: the check is .c
+  442 (cited 447), g_mb_regs_rw .c 147 (cited 137), "mb_master_2.py:114-121" -> tools/mb_master.py,
+  T4 116-118, T7 125-127.
+Pattern: values and mechanisms mostly right; nearly every line number wrong by 2-5 (.c) or from
+  another FreeRTOS version (tasks.c 3xxx) -> take every line from Select-String on the current file;
+  "_2" file name again; LaTeX "$t_{1.5}$" formatting again (flagged once).
+Note: the 7.2 R2 lock flag called "Session 13 theory Q&A" a placeholder; the block exists (Theory
+  Q&A during 2.5c-1 composition, session 13, line 1441) — tutor correction: the source was real but
+  named without the heading; a full heading would have avoided the flag.
