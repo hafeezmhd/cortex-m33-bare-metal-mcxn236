@@ -5594,3 +5594,31 @@ PHASE 7 CLOSED (2026-11-27, on plan): 7.0 3/4, 7.1 3 3/4 of 8, 7.2 0/3, self-tes
 Next: Phase 8 CAN — 8.0 paper (FlexCAN bit timing for 500 kbit/s from our clock, one TX mailbox +
   one RX mailbox/filter, clocks/pins CAN1 P4_15/P4_16, FRDM-side termination on schematic sheet
   SENSOR_CAN_QSPI before any wiring).
+### Session 30 end (2026-11-27 16:20)
+Session ended at the user's request (length); continuation in a new chat (session 31) with
+  continuation_prompt_session31.txt and the session-31 learning_log.md. State: image 7.1 (de94afc)
+  in flash, unchanged since session 29; last launch (2026-11-26 17:43) ended halted at .c 362
+  (bp 4) -> Terminated, Remove All Terminated (user). Console bps of that launch (2 mb_exception,
+  3 mb_send, 4 line 362) were deleted with `delete` before Terminate; Breakpoints view to be checked
+  empty before the next launch. GitHub HEAD = origin/main = d3443fc, 392 headings, clean (tutor
+  clone 15:03). Field Guide doc 8724fa96 rev 72 (Phases 0-7; doc-list title still "Phases 0-5" —
+  rename on claude.ai). Bench Map v280.
+Tutor correction (14:31): the expected count for grep -c "^### Phase 7" was given as 3; the pattern
+  also matches the session-28 block "### Phase 7/8 re-plan + 7.0 issued" -> right count 4. Lesson:
+  for an expected count, grep the pattern in the current log first and add the new blocks.
+Next: Phase 8 CAN — 8.0 paper (not yet issued).
+### Session 30 summary (2026-11-26 14:24 -> 2026-11-27 16:20)
+Intake clean: session-30 log 5,469 lines / 386 headings / sha256 ae751c1f... (first 5,435 lines =
+  GitHub 8e321eb), sources = image 7.1 (all md5s), mb_master.py 4c73c3a1...; one commit e6d57ee
+  for the session-29 end blocks + session-30 intake (387). 7.2 latency (no code change): predicted
+  11.1 / 11.1 / 11.1 ms, lock flags (R3 self-contradiction vs the logged ignore-count note) not
+  answered; measured medians A standalone 7.8 ms, B debug free run 8.4 ms, C break mb_send + ignore
+  100 188.0 ms (bp 3 hit 6, ignore next 94 -> every hit halts + resumes, ~180 ms each); slave time
+  IDLE -> first reply byte 4,348 cycles = 90.6 us; 7.1's 137-192 ms = debugger cost (closed);
+  0/3. New GDB method: an unreached bp (break mb_exception) + one exception request ends a free run
+  halted. Phase 7 self-test 1.85/3 (values and mechanisms mostly right; line numbers wrong
+  throughout, fragment CRCs wrong, Q3a answered from the 7.1 demo); plain-words model answers on
+  request. Field Guide Phases 0-7 (rev 72: 4 sections, lessons, numbers, open). PHASE 7 CLOSED
+  27 Nov on plan. Tutor slips: "Session 13 theory Q&A" flagged as a placeholder although the block
+  exists; "^### Phase 7" expected count 3 vs 4. Commits e6d57ee, deb4d9a, 54b4e24, 04ca902,
+  d3443fc. Bench Map v275 -> v280.
