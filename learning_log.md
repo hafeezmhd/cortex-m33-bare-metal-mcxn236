@@ -5528,3 +5528,20 @@ Weak points (7.2): lock flags unanswered a third step in a row (7.1 R2/R6, 7.2 R
   Session 25" = the old file copy, not the current one. Process: B loop and step-9 console lines
   missing from the first pastes. Strengths: timing parts derived from our own numbers (2.288 ms =
   44 bit times, 0.572 ms/char) and the A = B relation right.
+### Phase 7 self-test issued — session 30, 2026-11-26 18:39 (paper, open-book, 3 Qs)
+7.2 log commit pushed: deb4d9a "log: 7.2 locked, measured + graded (7.2 closed)" (tutor clone: 389
+  headings, no duplicates).
+Q1 frame end by idle line: request 01 03 00 04 00 02 85 CA sent (a) with a 5-character silence
+  between byte 4 and byte 5, (b) with a 2-character silence there. For each: reply bytes or "none";
+  change of g_lpflexcomm4_irq_count, g_mb_rx_bytes, g_mb_crc_bad, g_mb_ok; cite .c lines + RM
+  IDLECFG page; (a) needs the CRC values the task computes; (b) name the Serial Line rule (page)
+  that our slave does not meet.
+Q2 FromISR and the yield: (a) IPR9 PRI_N3 = 0x00 instead of 0x20 — what happens at the first
+  frame (function chain with file:line, g_assert_line value, state of the board); (b) IPR9 0x20 but
+  .c line 269 portYIELD_FROM_ISR deleted — what makes task_modbus run, and the worst-case extra
+  cycles over the measured 4348 (one value, with FreeRTOS V11.2.0 file:line for each step and our
+  config values).
+Q3 debugger and CRC: (a) why 7.2 C shows bp 3 "hit 6 times" and why the ~180 ms per reply in C
+  does not appear in g_mb_cyc_reply - g_mb_cyc_idle; (b) back-check the 7.2 reply 01 03 04 00 00 00
+  00 FA 33 by the p.39 algorithm (value of crc16 over all 9 bytes, and the .c line that uses it),
+  and say why 7.1 T7 ended BE 85 for the same request.
